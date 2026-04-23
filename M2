@@ -1,0 +1,3343 @@
+#!/usr/bin/env python3
+"""
+╔══════════════════════════════════════════════════════════════════════════╗
+║      AL QALB QUANTUM ULTIMATE – FULLY INTEGRATED AUTONOMOUS AI        ║
+║  Quantum Neural DNA + Al Qalb Economic Core + Trinitas Bridge          ║
+╚══════════════════════════════════════════════════════════════════════════╝
+"""
+
+import os, sys, asyncio, json, time, random, re, struct, hashlib, sqlite3, pickle
+import warnings, uuid, base64, heapq, statistics, gzip, urllib.request, urllib.parse
+import queue, threading, shutil, importlib.util, inspect, textwrap, ast, itertools
+import io, zipfile, socket, ssl
+from collections import defaultdict, deque, Counter, OrderedDict
+from typing import Dict, List, Optional, Tuple, Any, Union, Callable
+from dataclasses import dataclass, field, asdict
+from enum import Enum, auto
+from pathlib import Path
+from datetime import datetime, timedelta
+from functools import lru_cache, partial, wraps
+
+# =============================================================================
+# 0. AUTO‑INSTALL & IMPORTS (dimodifikasi agar lebih bersih)
+# =============================================================================
+from dotenv import load_dotenv
+load_dotenv()
+
+def _ensure_package(pkg_name: str, import_name: str = None):
+    """Install package if not present, return module."""
+    import importlib
+    if import_name is None:
+        import_name = pkg_name
+    try:
+        importlib.import_module(import_name)
+    except ImportError:
+        subprocess.call([sys.executable, "-m", "pip", "install", pkg_name, "--quiet"])
+
+# Daftar paket yang diperlukan
+REQUIRED_PACKAGES = {
+    "numpy": "numpy",
+    "aiohttp": "aiohttp",
+    "requests": "requests",
+    "beautifulsoup4": "bs4",
+    "aiosqlite": "aiosqlite",
+    "pandas": "pandas",
+    "pyTelegramBotAPI": "telebot",
+    "httpx": "httpx",
+    "feedparser": "feedparser",
+    "solana": "solana",
+    "solders": "solders",
+    "playwright": "playwright",
+    "python-binance": "binance",
+    "scipy": "scipy",
+    "ta": "ta",
+    "ccxt": "ccxt",
+    "scikit-learn": "sklearn",
+    "lxml": "lxml",
+    "faiss-cpu": "faiss",
+    "sentence-transformers": "sentence_transformers",
+    "rich": "rich",
+    "psutil": "psutil",
+    "prompt-toolkit": "prompt_toolkit",
+    "duckduckgo-search": "duckduckgo_search",
+    "googlesearch-python": "googlesearch",
+    "torch": "torch",
+    "selenium": "selenium",
+    "nltk": "nltk",
+    "cryptography": "cryptography",
+    "async-timeout": "async_timeout",
+    "aiofiles": "aiofiles",
+}
+
+for pkg, imp in REQUIRED_PACKAGES.items():
+    _ensure_package(pkg, imp)
+
+# =============================================================================
+# 1. GLOBAL CONFIGURATION (MERGED)
+# =============================================================================
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+if not TOKEN:
+    raise ValueError("TELEGRAM_BOT_TOKEN not set in .env")
+
+OWNER_ID = int(os.getenv("OWNER_ID", "0"))
+SECOND_ADMIN_ID = int(os.getenv("SECOND_ADMIN_ID", "0")) or OWNER_ID
+PRIVATE_KEY_BOT = os.getenv("PRIVATE_KEY_BOT", "")
+WALLET_TARGET = os.getenv("WALLET_TARGET", "")
+BOT_WALLET_ADDRESS = os.getenv("SOLANA_WALLET_ADDRESS", "")
+SOLANA_RPC = os.getenv("SOLANA_RPC", "https://api.mainnet-beta.solana.com")
+MIN_RESERVE_SOL = float(os.getenv("MIN_RESERVE_SOL", "0.01"))
+BIG_TX_THRESHOLD = float(os.getenv("BIG_TX_THRESHOLD", "0.5"))
+MODEL_NAME = os.getenv("MODEL_NAME", "qwen2.5-coder:3b")
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434/api/generate")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+BINANCE_API_KEY = os.getenv("BINANCE_API_KEY", "")
+BINANCE_SECRET_KEY = os.getenv("BINANCE_SECRET_KEY", "")
+BINANCE_TESTNET = os.getenv("BINANCE_TESTNET", "true").lower() == "true"
+ARKHAM_API_KEY = os.getenv("ARKHAM_API_KEY", "")
+DUNE_API_KEY = os.getenv("DUNE_API_KEY", "")
+ALCHEMY_API_KEY = os.getenv("ALCHEMY_API_KEY", "")
+HELIUS_API_KEY = os.getenv("HELIUS_API_KEY", "")
+TIER_1_MAX_USD = float(os.getenv("TIER_1_MAX_USD", "100"))
+TIER_2_MAX_USD = float(os.getenv("TIER_2_MAX_USD", "500"))
+MIN_DATA_ROWS = int(os.getenv("MIN_DATA_ROWS", "20"))
+EVOLUTION_CYCLES = int(os.getenv("EVOLUTION_CYCLES", "50"))
+DB_FILE_ALQALB = os.getenv("DB_FILE", "data/alqalb.db")
+LOCAL_BRAIN_FILE = os.getenv("LOCAL_BRAIN_FILE", "local_brain.json")
+MONEY_LAYER_ENABLED = True
+KILL_SWITCH = False
+
+# Paths
+os.makedirs("data", exist_ok=True)
+os.makedirs("backups", exist_ok=True)
+os.makedirs("strategies", exist_ok=True)
+
+# =============================================================================
+# 2. IMPORTS SETELAH AUTO‑INSTALL
+# =============================================================================
+import numpy as np
+import aiohttp, requests
+from bs4 import BeautifulSoup
+import aiosqlite, pandas as pd
+from telebot.async_telebot import AsyncTeleBot
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from solana.rpc.api import Client as SolClient
+from solders.keypair import Keypair
+from solders.pubkey import Pubkey
+from solders.system_program import transfer, TransferParams
+from solders.message import MessageV0
+from solders.transaction import VersionedTransaction
+from solders.commitment_config import CommitmentLevel
+from solders.rpc.config import RpcSendTransactionConfig as TxOpts
+from binance.client import Client as BinanceClient
+from binance.exceptions import BinanceAPIException, BinanceOrderException
+from scipy import stats
+from scipy.signal import find_peaks
+import faiss, sentence_transformers
+from sentence_transformers import SentenceTransformer
+import rich; from rich.console import Console
+import psutil, torch, torch.nn as nn, torch.nn.functional as F, torch.optim as optim
+from prompt_toolkit import PromptSession
+from prompt_toolkit.history import FileHistory
+from duckduckgo_search import DDGS
+from googlesearch import search as google_search
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options as ChromeOptions
+import cryptography; from cryptography.fernet import Fernet
+import async_timeout
+
+# Alias
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+log = logging.getLogger("QQD")
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+# =============================================================================
+# 3. UNIFIED ASYNC EVENT BUS (tanpa thread, murni asyncio)
+# =============================================================================
+class EventBus:
+    def __init__(self):
+        self._handlers: Dict[str, List[Callable]] = defaultdict(list)
+        self._history: deque = deque(maxlen=5000)
+        self._queue: asyncio.Queue = asyncio.Queue()
+        self._running = True
+
+    async def start(self):
+        """Main loop processing async events."""
+        while self._running:
+            packet = await self._queue.get()
+            await self._dispatch(packet)
+
+    def subscribe(self, event: str, handler: Callable):
+        self._handlers[event].append(handler)
+
+    async def publish(self, event: str, data: dict):
+        packet = {"event": event, "data": data, "ts": time.time()}
+        self._history.append(packet)
+        await self._queue.put(packet)
+
+    async def _dispatch(self, packet: dict):
+        event = packet["event"]
+        data = packet["data"]
+        for handler in self._handlers.get(event, []):
+            try:
+                result = handler(data)
+                if asyncio.iscoroutine(result):
+                    await result
+            except Exception as e:
+                log.error(f"EventBus error [{event}]: {e}")
+
+    def get_history(self, event: str = None, limit: int = 50) -> List[dict]:
+        h = list(self._history)
+        if event:
+            h = [x for x in h if x["event"] == event]
+        return h[-limit:]
+
+    async def stop(self):
+        self._running = False
+
+event_bus = EventBus()
+
+# =============================================================================
+# 4. UTILITY FUNGSI
+# =============================================================================
+def kill_check() -> bool:
+    return KILL_SWITCH
+
+def rate_check(uid: int, _cache: Dict = {}, _max=10, _window=60) -> bool:
+    now = time.time()
+    if uid not in _cache:
+        _cache[uid] = deque()
+    q = _cache[uid]
+    while q and now - q[0] > _window:
+        q.popleft()
+    if len(q) >= _max:
+        return False
+    q.append(now)
+    return True
+
+def is_owner(m) -> bool:
+    return m.from_user.id in (OWNER_ID, SECOND_ADMIN_ID)
+
+def audit_log(kind: str, content: str):
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    entry = f"[{ts}] [{kind.upper()}] {content}\n"
+    try:
+        with open("data/audit.log", "a", encoding="utf-8") as f:
+            f.write(entry)
+    except Exception:
+        pass
+    log.info(f"AUDIT [{kind}]: {content[:120]}")
+
+# =============================================================================
+# 5. UNIFIED KNOWLEDGE BASE (SQLite + FAISS + JSON)
+# =============================================================================
+class UnifiedKnowledgeBase:
+    """Menggabungkan IndexedLocalBrain & LocalBrain."""
+    def __init__(self, db_path: str = DB_FILE_ALQALB, vector_dim: int = 384):
+        self.db_path = db_path
+        self.vector_dim = vector_dim
+        self.faiss_index = None
+        self.id_map: Dict[int, str] = {}
+        self.reverse_map: Dict[str, int] = {}
+        self._init_db()
+        self._load_faiss()
+        self._load_json_brain()
+        self.embedder = None
+        if SENTENCE_TRANSFORMER_AVAILABLE:
+            try:
+                self.embedder = SentenceTransformer('all-MiniLM-L6-v2')
+                self.vector_dim = self.embedder.get_sentence_embedding_dimension()
+            except:
+                pass
+
+    def _init_db(self):
+        with sqlite3.connect(self.db_path) as conn:
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS knowledge_nodes (
+                    id TEXT PRIMARY KEY,
+                    topic TEXT,
+                    subtopic TEXT,
+                    statement TEXT,
+                    epistemic_type TEXT,
+                    confidence_score REAL,
+                    update_policy TEXT,
+                    utility_class TEXT,
+                    tags TEXT,
+                    relations TEXT,
+                    faiss_id INTEGER,
+                    embedding_blob BLOB,
+                    created_at REAL,
+                    updated_at REAL,
+                    access_count INTEGER DEFAULT 0
+                );
+                CREATE INDEX IF NOT EXISTS idx_knowledge_topic ON knowledge_nodes(topic);
+                CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_fts USING fts5(
+                    topic, statement, subtopic, tags, content='knowledge_nodes', content_rowid='rowid'
+                );
+                CREATE TABLE IF NOT EXISTS knowledge_ledger (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    node_id TEXT,
+                    action TEXT,
+                    timestamp REAL,
+                    details TEXT
+                );
+            """)
+
+    def _load_faiss(self):
+        index_path = "knowledge_vectors.faiss"
+        if os.path.exists(index_path):
+            self.faiss_index = faiss.read_index(index_path)
+            ids_path = index_path + ".ids"
+            if os.path.exists(ids_path):
+                with open(ids_path, "rb") as f:
+                    data = pickle.load(f)
+                    self.id_map = data.get("id_map", {})
+                    self.reverse_map = data.get("reverse_map", {})
+        else:
+            self.faiss_index = faiss.IndexFlatL2(self.vector_dim)
+
+    def _save_faiss(self):
+        faiss.write_index(self.faiss_index, "knowledge_vectors.faiss")
+        with open("knowledge_vectors.faiss.ids", "wb") as f:
+            pickle.dump({"id_map": self.id_map, "reverse_map": self.reverse_map}, f)
+
+    def _load_json_brain(self):
+        # Migrasi otomatis jika ada file lama
+        if os.path.exists(LOCAL_BRAIN_FILE):
+            try:
+                with open(LOCAL_BRAIN_FILE, "r") as f:
+                    old_nodes = json.load(f)
+                if isinstance(old_nodes, list):
+                    self.add_knowledge(old_nodes)
+                os.remove(LOCAL_BRAIN_FILE)
+            except Exception:
+                pass
+
+    def add_knowledge(self, nodes: List[dict]) -> int:
+        """Tambah/update node ke SQLite dan FAISS."""
+        added = 0
+        for node in nodes:
+            if not isinstance(node, dict) or not node.get("statement"):
+                continue
+            node_id = node.get("id", f"node_{uuid.uuid4()}")
+            # Validasi ringan
+            ep = node.get("epistemic_type", "fact")
+            if ep not in {"fact","heuristic","decision_rule","failure_mode","causal","synthesis"}:
+                ep = "fact"
+            # Embedding
+            emb = None
+            if self.embedder:
+                emb = self.embedder.encode(node["statement"])
+            # Simpan ke SQLite
+            with sqlite3.connect(self.db_path) as conn:
+                conn.execute("""
+                    INSERT OR REPLACE INTO knowledge_nodes
+                    (id, topic, subtopic, statement, epistemic_type, confidence_score,
+                     update_policy, utility_class, tags, relations, faiss_id,
+                     embedding_blob, created_at, updated_at)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                """, (
+                    node_id,
+                    node.get("topic", ""),
+                    node.get("subtopic", ""),
+                    node["statement"][:500],
+                    ep,
+                    node.get("confidence_score", 0.7),
+                    node.get("update_policy", "dynamic"),
+                    node.get("utility_class", "inference_only"),
+                    json.dumps(node.get("tags", [])),
+                    json.dumps(node.get("relations", [])),
+                    -1,  # sementara
+                    emb.tobytes() if emb is not None else None,
+                    time.time(), time.time()
+                ))
+            # Tambahkan ke FAISS
+            if emb is not None and self.faiss_index is not None:
+                self.faiss_index.add(emb.reshape(1, -1))
+                faiss_id = self.faiss_index.ntotal - 1
+                self.id_map[faiss_id] = node_id
+                self.reverse_map[node_id] = faiss_id
+                with sqlite3.connect(self.db_path) as conn:
+                    conn.execute("UPDATE knowledge_nodes SET faiss_id = ? WHERE id = ?", (faiss_id, node_id))
+            added += 1
+        if added:
+            self._save_faiss()
+        return added
+
+    def query(self, query_text: str, limit: int = 5, epistemic_filter: List[str] = None) -> List[dict]:
+        """Hybrid search: FAISS + FTS."""
+        results = []
+        # FAISS search
+        if self.embedder and self.faiss_index and self.faiss_index.ntotal > 0:
+            q_emb = self.embedder.encode(query_text).reshape(1, -1)
+            distances, indices = self.faiss_index.search(q_emb, limit)
+            for dist, idx in zip(distances[0], indices[0]):
+                if idx >= 0 and idx in self.id_map:
+                    node_id = self.id_map[idx]
+                    node = self._get_node_by_id(node_id)
+                    if node:
+                        if not epistemic_filter or node["epistemic_type"] in epistemic_filter:
+                            node["_score"] = float(dist)
+                            results.append(node)
+        # FTS fallback
+        if len(results) < limit:
+            with sqlite3.connect(self.db_path) as conn:
+                try:
+                    conn.execute("INSERT INTO knowledge_fts(knowledge_fts) VALUES('optimize')")
+                except:
+                    pass
+                cursor = conn.execute("""
+                    SELECT n.* FROM knowledge_nodes n
+                    JOIN knowledge_fts f ON n.rowid = f.rowid
+                    WHERE knowledge_fts MATCH ?
+                    ORDER BY rank LIMIT ?
+                """, (query_text, limit))
+                for row in cursor:
+                    node = self._row_to_dict(row)
+                    if node and node["id"] not in {n["id"] for n in results}:
+                        if not epistemic_filter or node["epistemic_type"] in epistemic_filter:
+                            results.append(node)
+        return results[:limit]
+
+    def _get_node_by_id(self, node_id: str) -> Optional[dict]:
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute("SELECT * FROM knowledge_nodes WHERE id = ?", (node_id,))
+            row = cursor.fetchone()
+            return self._row_to_dict(row) if row else None
+
+    def _row_to_dict(self, row) -> dict:
+        cols = ["id","topic","subtopic","statement","epistemic_type","confidence_score",
+                "update_policy","utility_class","tags","relations","faiss_id",
+                "embedding_blob","created_at","updated_at","access_count"]
+        d = dict(zip(cols, row))
+        d["tags"] = json.loads(d["tags"]) if d["tags"] else []
+        d["relations"] = json.loads(d["relations"]) if d["relations"] else []
+        return d
+
+    def answer_from_brain(self, query: str) -> Optional[str]:
+        nodes = self.query(query, limit=5)
+        if not nodes:
+            return None
+        ans = "🧠 [Unified Knowledge]\n\n"
+        for node in nodes:
+            ans += f"- [{node['epistemic_type']}] {node['statement'][:200]}\n"
+        return ans
+
+    def learn_from_trade(self, event: dict):
+        profit = event.get("profit_pct", 0)
+        mint = event.get("mint", "unknown")
+        reason = event.get("reason", "unknown")
+        if profit > 10:
+            self.add_knowledge([{
+                "id": f"win_{mint[:8]}_{int(time.time())}",
+                "topic": "trading", "subtopic": "win",
+                "statement": f"Profit {profit:.1f}% on {mint} due to {reason}",
+                "epistemic_type": "decision_rule",
+                "confidence_score": min(0.95, profit/100)
+            }])
+        elif profit < -5:
+            self.add_knowledge([{
+                "id": f"loss_{mint[:8]}_{int(time.time())}",
+                "topic": "trading", "subtopic": "loss",
+                "statement": f"Loss {profit:.1f}% on {mint} due to {reason} — AVOID",
+                "epistemic_type": "failure_mode",
+                "confidence_score": 0.8
+            }])
+
+    def get_stats(self) -> dict:
+        with sqlite3.connect(self.db_path) as conn:
+            total = conn.execute("SELECT COUNT(*) FROM knowledge_nodes").fetchone()[0]
+            topics = dict(conn.execute("SELECT topic, COUNT(*) FROM knowledge_nodes GROUP BY topic").fetchall())
+        return {"total_nodes": total, "topics": topics}
+
+unified_brain = UnifiedKnowledgeBase()
+
+# (Lanjut ke Bagian 2: DNA, Memory Manager, Quantization, dll.)
+
+# =============================================================================
+# 6. QUANTIZATION UTILITY (NP & Torch)
+# =============================================================================
+class QuantizationUtil:
+    @staticmethod
+    def quantize_2bit_np(data: np.ndarray) -> Tuple[np.ndarray, float, float]:
+        scale = data.max() - data.min()
+        zero_point = data.min()
+        if scale == 0:
+            return np.zeros((data.size + 3) // 4, dtype=np.uint8), 0.0, 0.0
+        normalized = (data - zero_point) / scale
+        quantized = np.round(normalized * 3).astype(np.int8)
+        packed = np.zeros((quantized.size + 3) // 4, dtype=np.uint8)
+        flat = quantized.flatten()
+        for i in range(0, flat.size, 4):
+            val = 0
+            for j in range(4):
+                if i + j < flat.size:
+                    val |= (int(flat[i+j]) & 0x03) << (j * 2)
+            packed[i // 4] = val
+        return packed, scale, zero_point
+
+    @staticmethod
+    def dequantize_2bit_np(packed: np.ndarray, shape: Tuple[int, ...],
+                           scale: float, zero_point: float) -> np.ndarray:
+        unpacked = np.zeros(shape).flatten()
+        for i in range(packed.size):
+            byte_val = packed[i]
+            for j in range(4):
+                idx = i * 4 + j
+                if idx < unpacked.size:
+                    unpacked[idx] = (byte_val >> (j * 2)) & 0x03
+        normalized = unpacked / 3.0
+        return (normalized * scale + zero_point).reshape(shape).astype(np.float16)
+
+    @staticmethod
+    def quantize_2bit_torch(tensor: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        tensor = tensor.float()
+        scale = tensor.max() - tensor.min()
+        zero_point = tensor.min()
+        if scale == 0:
+            packed = torch.zeros((tensor.numel() + 3) // 4, dtype=torch.uint8, device=tensor.device)
+            return packed, torch.tensor(0.0, device=tensor.device), torch.tensor(0.0, device=tensor.device)
+        normalized = (tensor - zero_point) / scale
+        quantized = torch.round(normalized * 3).to(torch.int8)
+        flat = quantized.flatten()
+        packed = torch.zeros((flat.numel() + 3) // 4, dtype=torch.uint8, device=tensor.device)
+        for i in range(0, flat.numel(), 4):
+            val = 0
+            for j in range(4):
+                if i + j < flat.numel():
+                    val |= (int(flat[i+j].item()) & 0x03) << (j * 2)
+            packed[i // 4] = val
+        return packed, scale, zero_point
+
+    @staticmethod
+    def dequantize_2bit_torch(packed: torch.Tensor, shape: Tuple[int, ...],
+                              scale: torch.Tensor, zero_point: torch.Tensor) -> torch.Tensor:
+        total = int(np.prod(shape))
+        unpacked = torch.zeros(total, dtype=torch.float32, device=packed.device)
+        for i in range(packed.numel()):
+            byte = packed[i].item()
+            for j in range(4):
+                idx = i * 4 + j
+                if idx < total:
+                    unpacked[idx] = (byte >> (j * 2)) & 0x03
+        normalized = unpacked / 3.0
+        return (normalized * scale + zero_point).reshape(shape).to(torch.float16)
+
+# =============================================================================
+# 7. 3‑LEVEL MEMORY MANAGER (UNIFIED, THREAD‑SAFE, ASYNC‑FRIENDLY)
+# =============================================================================
+class ThreeLevelMemoryManager:
+    """Menggabungkan NP dan Torch, menyediakan akses async via executor."""
+
+    def __init__(self, l1_mb: int = 50, l2_mb: int = 500, ssd_dir: str = "ssd_experts"):
+        self.l1 = OrderedDict()          # {expert_id: tensor}
+        self.l2 = OrderedDict()
+        self.l1_limit = l1_mb * 1024 * 1024
+        self.l2_limit = l2_mb * 1024 * 1024
+        self.ssd_dir = ssd_dir
+        self.ssd_index: Dict[str, Dict] = {}
+        self.l1_usage = 0
+        self.l2_usage = 0
+        self._lock = threading.RLock()
+        os.makedirs(ssd_dir, exist_ok=True)
+
+    # ----------- SINKRON (internal, harus dipanggil dari executor) ----------
+    def _save_to_ssd(self, expert_id: str, tensor: Union[np.ndarray, torch.Tensor]) -> str:
+        path = os.path.join(self.ssd_dir, f"expert_{expert_id}.qsd")
+        if isinstance(tensor, np.ndarray):
+            packed, scale, zp = QuantizationUtil.quantize_2bit_np(tensor)
+            with open(path, 'wb') as f:
+                f.write(struct.pack('I' * len(tensor.shape), *tensor.shape))
+                f.write(struct.pack('ff', scale, zp))
+                f.write(packed.tobytes())
+        else:
+            packed, scale, zp = QuantizationUtil.quantize_2bit_torch(tensor)
+            torch.save({'shape': tensor.shape, 'packed': packed.cpu(),
+                        'scale': scale.cpu(), 'zero_point': zp.cpu()}, path)
+        info = {"path": path, "shape": tensor.shape,
+                "scale": scale.item() if hasattr(scale,'item') else scale,
+                "zero_point": zp.item() if hasattr(zp,'item') else zp,
+                "size": os.path.getsize(path)}
+        with self._lock:
+            self.ssd_index[expert_id] = info
+        return path
+
+    def _load_from_ssd(self, expert_id: str) -> Optional[Union[np.ndarray, torch.Tensor]]:
+        with self._lock:
+            info = self.ssd_index.get(expert_id)
+        if not info:
+            return None
+        if info['path'].endswith('.qsd'):
+            with open(info['path'], 'rb') as f:
+                ndim = len(info['shape'])
+                _ = f.read(ndim * struct.calcsize('I'))
+                scale = struct.unpack('f', f.read(4))[0]
+                zp = struct.unpack('f', f.read(4))[0]
+                packed = np.frombuffer(f.read(), dtype=np.uint8)
+            return QuantizationUtil.dequantize_2bit_np(packed, info['shape'], scale, zp)
+        else:
+            data = torch.load(info['path'], map_location='cpu')
+            return QuantizationUtil.dequantize_2bit_torch(
+                data['packed'].to(device), info['shape'],
+                data['scale'].to(device), data['zero_point'].to(device))
+
+    def _get_expert_sync(self, expert_id: str):
+        """Sinkron, gunakan hanya dari executor."""
+        with self._lock:
+            if expert_id in self.l1:
+                tensor = self.l1.pop(expert_id)
+                self.l1[expert_id] = tensor    # move to end
+                return tensor
+            if expert_id in self.l2:
+                tensor = self.l2.pop(expert_id)
+                self._promote_to_l1(expert_id, tensor)
+                return tensor
+        # load from SSD
+        tensor = self._load_from_ssd(expert_id)
+        if tensor is not None:
+            self._promote_to_l1(expert_id, tensor)
+        return tensor
+
+    def _promote_to_l1(self, expert_id: str, tensor):
+        size = self._tensor_size(tensor)
+        with self._lock:
+            while self.l1_usage + size > self.l1_limit and self.l1:
+                old_id, old_tensor = self.l1.popitem(last=False)
+                self.l1_usage -= self._tensor_size(old_tensor)
+                self._demote_to_l2(old_id, old_tensor)
+            self.l1[expert_id] = tensor
+            self.l1_usage += size
+
+    def _demote_to_l2(self, expert_id: str, tensor):
+        size = self._tensor_size(tensor)
+        with self._lock:
+            while self.l2_usage + size > self.l2_limit and self.l2:
+                old_id, old_tensor = self.l2.popitem(last=False)
+                self.l2_usage -= self._tensor_size(old_tensor)
+                self._save_to_ssd(old_id, old_tensor)      # SSD write
+            self.l2[expert_id] = tensor
+            self.l2_usage += size
+
+    def _tensor_size(self, tensor) -> int:
+        if isinstance(tensor, np.ndarray):
+            return tensor.nbytes
+        else:
+            return tensor.element_size() * tensor.numel()
+
+    def clear_cache(self):
+        with self._lock:
+            self.l1.clear()
+            self.l2.clear()
+            self.l1_usage = 0
+            self.l2_usage = 0
+
+    # ----------- ASYNC WRAPPER ----------
+    async def get_expert(self, expert_id: str):
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, self._get_expert_sync, expert_id)
+
+    async def save_expert(self, expert_id: str, tensor):
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, self._save_to_ssd, expert_id, tensor)
+
+# =============================================================================
+# 8. QUANTUM‑SPARSE NEURAL DNA (UNIFIED, TORCH PRIORITY)
+# =============================================================================
+class QuantumSparseDNA:
+    """DNA engine yang berjalan di Torch jika tersedia, fallback ke NumPy."""
+
+    def __init__(self, dna_size=256, latent_dim=128):
+        self.use_torch = TORCH_AVAILABLE
+        if self.use_torch:
+            self.dna = nn.Parameter(torch.randn(dna_size, latent_dim, dtype=torch.float16) * 0.01)
+            self.alpha = nn.Parameter(torch.ones(1, dtype=torch.float16))
+            self.beta = nn.Parameter(torch.zeros(1, dtype=torch.float16))
+        else:
+            self.dna = np.random.randn(dna_size, latent_dim).astype(np.float16) * 0.01
+            self.alpha = 1.0
+            self.beta = 0.0
+        self.dna_size = dna_size
+        self.latent_dim = latent_dim
+        self.sparsity = 0.01
+        self.cache = OrderedDict()
+        self.cache_limit = 100
+        self._lock = threading.RLock()
+
+    def forward(self, input_vector: Union[np.ndarray, torch.Tensor], layer_id: int = 0):
+        """Menerima input 1D atau 2D, mengembalikan (weight_matrix, gene_indices)."""
+        if self.use_torch:
+            return self._forward_torch(input_vector, layer_id)
+        else:
+            return self._forward_np(input_vector, layer_id)
+
+    def _forward_np(self, x: np.ndarray, layer_id: int):
+        # Normalisasi input
+        if x.ndim == 1:
+            x = x.reshape(1, -1)
+        if x.shape[1] != self.latent_dim:
+            if x.shape[1] > self.latent_dim:
+                x = x[:, :self.latent_dim]
+            else:
+                pad = np.zeros((x.shape[0], self.latent_dim - x.shape[1]), dtype=np.float16)
+                x = np.hstack([x, pad])
+        cond = x.mean(axis=0).astype(np.float16)
+        cache_key = f"layer_{layer_id}_{hash(cond.tobytes()) % 10000}"
+        with self._lock:
+            if cache_key in self.cache:
+                self.cache.move_to_end(cache_key)
+                return self.cache[cache_key], np.array([])
+
+        scores = cond @ self.dna.T
+        k = max(1, int(self.dna_size * self.sparsity))
+        indices = np.argpartition(scores, -k)[-k:]
+        active = self.dna[indices]
+        a = active.mean(axis=0)
+        b = active[::-1].mean(axis=0)
+        w = np.outer(a, b)
+        threshold = np.percentile(np.abs(w), 90)
+        w[np.abs(w) < threshold] = 0
+        w = np.round(w * 3) / 3
+        w = w / (np.linalg.norm(w) + 1e-8)
+        w = self.alpha * w + self.beta
+        with self._lock:
+            self.cache[cache_key] = w
+            if len(self.cache) > self.cache_limit:
+                self.cache.popitem(last=False)
+        return w.astype(np.float16), indices
+
+    def _forward_torch(self, x, layer_id: int):
+        if isinstance(x, np.ndarray):
+            x = torch.from_numpy(x).to(device)
+        if x.dim() == 1:
+            x = x.unsqueeze(0)
+        cond = x.mean(dim=0)
+        cache_key = f"layer_{layer_id}_{hash(cond.cpu().numpy().tobytes()) % 10000}"
+        with self._lock:
+            if cache_key in self.cache:
+                self.cache.move_to_end(cache_key)
+                return self.cache[cache_key], torch.tensor([])
+
+        scores = cond @ self.dna.T
+        k = max(1, int(self.dna_size * self.sparsity))
+        _, indices = torch.topk(scores, k)
+        active = self.dna[indices]
+        a = active.mean(dim=0)
+        b = active.flip(0).mean(dim=0)
+        w = torch.outer(a, b)
+        threshold = torch.quantile(torch.abs(w), 0.9)
+        w = torch.where(torch.abs(w) < threshold, torch.zeros_like(w), w)
+        w = torch.round(w * 3) / 3
+        w = w / (torch.norm(w) + 1e-8)
+        w = self.alpha * w + self.beta
+        with self._lock:
+            self.cache[cache_key] = w
+            if len(self.cache) > self.cache_limit:
+                self.cache.popitem(last=False)
+        return w, indices
+
+    def clear_cache(self):
+        with self._lock:
+            self.cache.clear()
+
+# =============================================================================
+# 9. ADAPTIVE SCORER (EVENT‑DRIVEN, UNIFIED)
+# =============================================================================
+class AdaptiveScorer:
+    """Skor adaptif berdasarkan histori trading global."""
+
+    def __init__(self, lookback: int = 50):
+        self.history: deque = deque(maxlen=lookback)
+        self.win_rate = 0.5
+        self.avg_profit = 0.0
+        self.market_baseline: Dict = {}
+        event_bus.subscribe("trade_closed", self.on_trade_closed)
+
+    async def on_trade_closed(self, data: dict):
+        profit = data.get("profit_pct", 0)
+        ts = time.time()
+        self.history.append({"profit_pct": profit, "ts": ts})
+        if self.history:
+            wins = sum(1 for h in self.history if h["profit_pct"] > 0)
+            self.win_rate = wins / len(self.history)
+            self.avg_profit = statistics.mean(h["profit_pct"] for h in self.history)
+        # Update baseline dari data trade
+        for key in ("volume_h24", "market_cap", "price_change_h24"):
+            val = data.get(key)
+            if val is not None:
+                self.market_baseline[key] = val   # simplifying: latest value as baseline
+
+    def score(self, data: Dict) -> int:
+        base = self._calculate_base(data)
+        # Modulation based on overall win rate
+        if self.win_rate < 0.4:
+            base = int(base * 0.85)
+        elif self.win_rate > 0.65:
+            base = int(base * 1.05)
+        return max(0, min(100, base))
+
+    def _calculate_base(self, data: Dict) -> int:
+        score = 0
+        mc = data.get("market_cap", 0)
+        vol = data.get("volume_h24", 0)
+        change = data.get("price_change_h24", 0)
+        liquidity = data.get("liquidity_usd", 0)
+        buys = data.get("txns_h24_buys", 0)
+        sells = data.get("txns_h24_sells", 0)
+
+        if 50_000 <= mc <= 500_000: score += 25
+        elif 500_000 <= mc <= 2_000_000: score += 20
+        elif mc > 2_000_000: score += 10
+
+        if mc > 0:
+            vol_ratio = vol / mc
+            if vol_ratio >= 3: score += 25
+            elif vol_ratio >= 1: score += 15
+            elif vol_ratio >= 0.3: score += 5
+
+        if 10 <= change <= 100: score += 20
+        elif change > 100: score += 10
+        elif change < -20: score -= 15
+
+        total_txns = buys + sells
+        if total_txns > 0:
+            buy_ratio = buys / total_txns
+            if buy_ratio > 0.65: score += 15
+            elif buy_ratio > 0.55: score += 8
+
+        if liquidity >= 50_000: score += 15
+        elif liquidity >= 10_000: score += 8
+
+        return score
+
+adaptive_scorer = AdaptiveScorer()
+
+# =============================================================================
+# 10. UNIFIED META‑GOVERNOR (SINGLE CORTEX)
+# =============================================================================
+class UnifiedMetaGovernor:
+    """Menggantikan MetaGovernorQND + MetaGovernorLegacy + MetaGovernor2.0."""
+
+    def __init__(self, dna: QuantumSparseDNA, mm: ThreeLevelMemoryManager):
+        self.dna = dna
+        self.mm = mm
+        self.brain = unified_brain
+        self.strategy = {
+            "take_profit_mult": 2.0,
+            "stop_loss_pct": -12.0,
+            "trade_size_multiplier": 1.0,
+            "exploration_rate": 0.7,
+        }
+        self.consciousness = 0.5
+        self.mode = "balanced"
+        self.idea_queue = asyncio.Queue()
+        self._lock = asyncio.Lock()
+        event_bus.subscribe("trade_closed", self.on_trade_closed)
+        event_bus.subscribe("evolution_completed", self.on_evolution)
+        event_bus.subscribe("research_completed", self.on_research)
+
+    async def on_trade_closed(self, data: dict):
+        profit = data.get("profit_pct", 0)
+        if profit > 20:
+            self.consciousness = min(0.95, self.consciousness + 0.02)
+        elif profit < -10:
+            self.mode = "cautious"
+            self.strategy["take_profit_mult"] = 1.5
+            self.strategy["stop_loss_pct"] = -8.0
+
+    async def on_evolution(self, data: dict):
+        # regenerate ideas based on new hypotheses
+        pass
+
+    async def on_research(self, data: dict):
+        pass
+
+    async def analyze_and_decide(self, intel_report: Dict) -> Dict:
+        """Menghasilkan strategi trading berdasarkan intel dan status internal."""
+        market_change = intel_report.get("global_market", {}).get("market_cap_change_24h", 0)
+        whale = intel_report.get("whale_sentiment", "neutral")
+        smart = intel_report.get("smart_money", False)
+
+        if whale == "bearish" or market_change < -5:
+            self.mode = "conservative"
+        elif whale == "bullish" and smart:
+            self.mode = "aggressive"
+        else:
+            self.mode = "balanced"
+
+        strat = {
+            "conservative": {"take_profit_mult": 1.5, "stop_loss_pct": -8.0, "trade_size_multiplier": 0.7},
+            "balanced": {"take_profit_mult": 2.0, "stop_loss_pct": -12.0, "trade_size_multiplier": 1.0},
+            "aggressive": {"take_profit_mult": 3.0, "stop_loss_pct": -15.0, "trade_size_multiplier": 1.3},
+        }
+        return strat[self.mode]
+
+    async def run(self):
+        """Background cognitive loop."""
+        while not kill_check():
+            # Generate research ideas based on brain gaps
+            stats = self.brain.get_stats()
+            if stats["total_nodes"] < 100:
+                topic = random.choice(["trading strategy", "crypto market", "DeFi", "risk management"])
+                self.brain.add_knowledge([{
+                    "id": f"auto_idea_{int(time.time())}",
+                    "topic": topic,
+                    "statement": f"System needs more knowledge on {topic}",
+                    "epistemic_type": "fact"
+                }])
+            await asyncio.sleep(600)
+
+    async def get_strategy(self, intel_report: Dict = None) -> Dict:
+        return dict(self.strategy)
+
+unified_governor = None   # akan diinisialisasi setelah DNA & MM siap
+
+# (Lanjut ke Bagian 3: CodeGenerator, VectorStore, ResearchEngine, dll.)
+
+# =============================================================================
+# 11. CODE GENERATOR (Strategi Auto‑Evolusi)
+# =============================================================================
+class CodeGenerator:
+    """Menghasilkan dan mengelola strategi trading dari hipotesis UHEE."""
+
+    def __init__(self, strategies_dir: Path = Path("strategies"), backup_dir: Path = Path("backups")):
+        self.strategies_dir = strategies_dir
+        self.backup_dir = backup_dir
+        self.strategies_dir.mkdir(exist_ok=True)
+        self.backup_dir.mkdir(exist_ok=True)
+        self.version = 0
+        self.loaded_strategies: Dict[str, Any] = {}
+        self._lock = asyncio.Lock()
+
+    def _backup_main(self):
+        """Backup file utama sebelum modifikasi."""
+        main_file = Path(__file__).resolve()
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        dst = self.backup_dir / f"backup_{ts}.py"
+        try:
+            shutil.copy2(main_file, dst)
+            log.info(f"Backup: {dst}")
+        except Exception as e:
+            log.warning(f"Backup failed: {e}")
+
+    def validate(self, code: str) -> bool:
+        """Validasi keamanan dan sintaks kode."""
+        try:
+            ast.parse(code)
+        except SyntaxError as e:
+            log.warning(f"CodeGen syntax error: {e}")
+            return False
+
+        dangerous = ["os.system", "subprocess.call", "subprocess.run",
+                     "eval(", "exec(", "__import__", "shutil.rmtree", "import os", "rm -rf"]
+        code_lower = code.lower()
+        for d in dangerous:
+            if d.lower() in code_lower:
+                log.warning(f"CodeGen rejected: dangerous '{d}'")
+                return False
+
+        if "class " not in code and "def " not in code:
+            log.warning("CodeGen rejected: no class/function")
+            return False
+        return True
+
+    def generate_from_hypothesis(self, hypothesis: dict, strategy_name: str = None) -> Optional[str]:
+        """Generate kode strategi dari hipotesis UHEE."""
+        if not strategy_name:
+            strategy_name = f"Strategy_{hypothesis.get('id', 'gen')[:20].replace('-', '_')}"
+        strategy_name = re.sub(r'[^a-zA-Z0-9_]', '_', strategy_name)
+
+        ant = hypothesis.get("antecedent", {})
+        cons = hypothesis.get("consequent", {})
+        ant_feat = ant.get("feature", "price_usd")
+        ant_op = ant.get("op", "gt")
+        ant_val = ant.get("value", 0)
+        cons_dir = cons.get("direction", "up")
+
+        op_map = {"gt": ">", "lt": "<", "gte": ">=", "lte": "<="}
+        op_str = op_map.get(ant_op, ">")
+
+        code = f"""
+class {strategy_name}:
+    \"\"\"Auto-generated strategy. Hypothesis: {hypothesis.get('id', '?')} Fitness: {hypothesis.get('fitness', 0):.3f}\"\"\"
+    def __init__(self):
+        self.threshold = {ant_val}
+        self.feature = "{ant_feat}"
+        self.expected_direction = "{cons_dir}"
+
+    def should_buy(self, data: dict) -> bool:
+        val = data.get(self.feature, 0)
+        return val {op_str} self.threshold and self.expected_direction == "up"
+
+    def should_sell(self, data: dict) -> bool:
+        val = data.get(self.feature, 0)
+        return val {op_str} self.threshold and self.expected_direction == "down"
+
+    def execute(self, data: dict) -> str:
+        if self.should_buy(data): return "buy"
+        if self.should_sell(data): return "sell"
+        return "hold"
+"""
+        return code if self.validate(code) else None
+
+    async def save_and_load(self, strategy_name: str, code: str) -> Optional[Any]:
+        """Simpan strategi ke file dan load."""
+        async with self._lock:
+            self._backup_main()
+            filepath = self.strategies_dir / f"{strategy_name}.py"
+            filepath.write_text(code, encoding="utf-8")
+
+            spec = importlib.util.spec_from_file_location(strategy_name, filepath)
+            mod = importlib.util.module_from_spec(spec)
+            try:
+                spec.loader.exec_module(mod)
+                strategy_class = getattr(mod, strategy_name, None)
+                if strategy_class:
+                    instance = strategy_class()
+                    self.loaded_strategies[strategy_name] = instance
+                    self.version += 1
+                    return instance
+            except Exception as e:
+                log.error(f"Load strategy error: {e}")
+        return None
+
+    async def evolve_from_uhee(self, top_hypotheses: List[dict]):
+        """Evolusi strategi dari hasil UHEE."""
+        for hyp_dict in top_hypotheses[:3]:
+            fitness = hyp_dict.get("fitness", 0)
+            if fitness < 0.5:
+                continue
+            name = f"strategy_v{self.version}_{int(time.time())}"
+            code = self.generate_from_hypothesis(hyp_dict, name)
+            if code:
+                instance = await self.save_and_load(name, code)
+                if instance:
+                    log.info(f"Strategy evolved: {name} (fitness={fitness:.3f})")
+
+code_gen = CodeGenerator()
+
+# =============================================================================
+# 12. VECTOR STORE (FAISS – SERVICE INTERFACE)
+# =============================================================================
+class VectorStoreService:
+    """Menyediakan akses FAISS untuk search semantik (dimiliki oleh UnifiedBrain)."""
+
+    def __init__(self, brain: UnifiedKnowledgeBase):
+        self.brain = brain
+
+    def embed_text(self, text: str) -> Optional[np.ndarray]:
+        if self.brain.embedder:
+            return self.brain.embedder.encode(text, show_progress_bar=False)
+        return None
+
+    async def search(self, query: str, k: int = 5) -> List[Tuple[str, float]]:
+        """Mengembalikan (node_id, distance)."""
+        results = []
+        if not self.brain.faiss_index or self.brain.faiss_index.ntotal == 0:
+            return results
+
+        q_emb = self.embed_text(query)
+        if q_emb is None:
+            return results
+
+        loop = asyncio.get_running_loop()
+        distances, indices = await loop.run_in_executor(
+            None, lambda: self.brain.faiss_index.search(q_emb.reshape(1, -1), k)
+        )
+        for dist, idx in zip(distances[0], indices[0]):
+            if idx >= 0 and idx in self.brain.id_map:
+                results.append((self.brain.id_map[idx], float(dist)))
+        return results
+
+    async def add(self, node_id: str, text: str):
+        emb = self.embed_text(text)
+        if emb is not None:
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(
+                None, lambda: self.brain.faiss_index.add(emb.reshape(1, -1))
+            )
+
+vector_service = VectorStoreService(unified_brain)
+
+# =============================================================================
+# 13. WEB RESEARCH ENGINE
+# =============================================================================
+class WebResearchEngine:
+    """DuckDuckGo + web scraping engine."""
+
+    def __init__(self):
+        self.session: Optional[aiohttp.ClientSession] = None
+
+    async def start(self):
+        self.session = aiohttp.ClientSession(
+            headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"}
+        )
+
+    async def close(self):
+        if self.session:
+            await self.session.close()
+            self.session = None
+
+    async def search(self, query: str, max_results: int = 5) -> List[Dict]:
+        results = []
+        try:
+            loop = asyncio.get_running_loop()
+            ddg_results = await loop.run_in_executor(
+                None, lambda: list(DDGS().text(query, max_results=max_results))
+            )
+            for r in ddg_results:
+                results.append({
+                    "title": r.get("title", ""),
+                    "url": r.get("href", ""),
+                    "snippet": r.get("body", "")
+                })
+        except Exception as e:
+            log.error(f"DDG search error: {e}")
+        return results
+
+    async def fetch_page(self, url: str) -> Optional[str]:
+        if not self.session:
+            return None
+        try:
+            async with self.session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status == 200:
+                    html = await resp.text()
+                    soup = BeautifulSoup(html, "html.parser")
+                    for elem in soup(["script", "style", "nav", "header", "footer"]):
+                        elem.decompose()
+                    text = soup.get_text(separator="\n", strip=True)
+                    return "\n".join(line.strip() for line in text.splitlines() if line.strip())[:5000]
+        except Exception:
+            pass
+        return None
+
+    async def research(self, query: str) -> Dict:
+        """Research topic → sources + summary."""
+        result = {"query": query, "sources": [], "summary": ""}
+        sources = await self.search(query)
+        for src in sources[:3]:
+            result["sources"].append(src)
+            content = await self.fetch_page(src["url"])
+            if content:
+                result["summary"] += src.get("snippet", "") + "\n" + content[:500]
+        return result
+
+web_engine = WebResearchEngine()
+
+# =============================================================================
+# 14. AI HYBRID LAYER (OpenRouter → Gemini → Ollama)
+# =============================================================================
+async def call_openrouter(prompt: str) -> Optional[str]:
+    if not OPENROUTER_API_KEY:
+        return None
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://alqalb.local",
+        "X-Title": "AL QALB",
+    }
+    models = [
+        "meta-llama/llama-3-8b-instruct:free",
+        "mistralai/mistral-7b-instruct:free",
+        "google/gemma-7b-it:free",
+    ]
+    for model in models:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers=headers,
+                    json={"model": model, "messages": [{"role": "user", "content": prompt}], "max_tokens": 2000},
+                    timeout=aiohttp.ClientTimeout(total=30)
+                ) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        return data["choices"][0]["message"]["content"]
+        except Exception as e:
+            log.debug(f"OpenRouter [{model}]: {e}")
+    return None
+
+async def call_gemini(prompt: str) -> Optional[str]:
+    if not GEMINI_API_KEY:
+        return None
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json={"contents": [{"parts": [{"text": prompt}]}]},
+                                    timeout=aiohttp.ClientTimeout(total=30)) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    return data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+    except Exception as e:
+        log.debug(f"Gemini: {e}")
+    return None
+
+async def call_ollama(prompt: str) -> Optional[str]:
+    try:
+        loop = asyncio.get_running_loop()
+        resp = await loop.run_in_executor(
+            None,
+            lambda: requests.post(OLLAMA_URL, json={"model": MODEL_NAME, "prompt": prompt, "stream": False}, timeout=60)
+        )
+        if resp.status_code == 200:
+            return resp.json().get("response", "")
+    except Exception as e:
+        log.debug(f"Ollama: {e}")
+    return None
+
+async def ai_hybrid(prompt: str) -> str:
+    """Never‑fail AI call chain."""
+    result = await call_openrouter(prompt)
+    if result:
+        return result.strip()
+    result = await call_gemini(prompt)
+    if result:
+        return result.strip()
+    result = await call_ollama(prompt)
+    if result:
+        return result.strip()
+    return "AI tidak tersedia saat ini."
+
+# =============================================================================
+# 15. SOLANA UTILITIES
+# =============================================================================
+_sol_client = SolClient(SOLANA_RPC)
+
+def get_real_balance(address: str) -> float:
+    if not address:
+        return 0.0
+    try:
+        pub = Pubkey.from_string(address)
+        resp = _sol_client.get_balance(pub)
+        return resp.value / 1e9
+    except Exception as e:
+        log.debug(f"get_real_balance: {e}")
+        return 0.0
+
+async def get_sol_price_usd() -> float:
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd",
+                timeout=aiohttp.ClientTimeout(total=10)
+            ) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    return float(data["solana"]["usd"])
+    except Exception:
+        pass
+    return 0.0
+
+def send_sol_tx(to_addr: str, amount_sol: float) -> str:
+    if not PRIVATE_KEY_BOT:
+        raise ValueError("PRIVATE_KEY_BOT not set")
+    if amount_sol <= 0:
+        raise ValueError(f"Invalid amount: {amount_sol}")
+
+    # Decode private key
+    pk_raw = PRIVATE_KEY_BOT.strip()
+    try:
+        if len(pk_raw) == 88:
+            pk_bytes = base64.b64decode(pk_raw)
+        elif "," in pk_raw:
+            pk_bytes = bytes(json.loads(f"[{pk_raw}]"))
+        else:
+            try:
+                pk_bytes = bytes.fromhex(pk_raw)
+            except ValueError:
+                import base58
+                pk_bytes = base58.b58decode(pk_raw)
+    except Exception as e:
+        raise ValueError(f"Private key decode error: {e}")
+
+    keypair = Keypair.from_bytes(pk_bytes)
+    to_pubkey = Pubkey.from_string(to_addr)
+    lamports = int(amount_sol * 1e9)
+
+    recent_bh = _sol_client.get_latest_blockhash()
+    blockhash = recent_bh.value.blockhash
+
+    transfer_ix = transfer(TransferParams(
+        from_pubkey=keypair.pubkey(),
+        to_pubkey=to_pubkey,
+        lamports=lamports
+    ))
+    msg = MessageV0.try_compile(
+        payer=keypair.pubkey(),
+        instructions=[transfer_ix],
+        address_lookup_table_accounts=[],
+        recent_blockhash=blockhash
+    )
+    tx = VersionedTransaction(msg, [keypair])
+    opts = TxOpts(skip_preflight=False, preflight_commitment="confirmed")
+    result = _sol_client.send_transaction(tx, opts=opts)
+    sig = str(result.value)
+    audit_log("send_sol_tx", f"to={to_addr} amount={amount_sol} sig={sig}")
+    return sig
+
+async def jupiter_swap(input_mint: str, output_mint: str, amount_lamports: int, slippage_bps: int = 100) -> Optional[str]:
+    """Execute token swap via Jupiter aggregator."""
+    if not PRIVATE_KEY_BOT:
+        return None
+    try:
+        async with aiohttp.ClientSession() as session:
+            # Step 1: Get quote
+            async with session.get(
+                "https://quote-api.jup.ag/v6/quote",
+                params={
+                    "inputMint": input_mint,
+                    "outputMint": output_mint,
+                    "amount": str(amount_lamports),
+                    "slippageBps": slippage_bps,
+                },
+                timeout=aiohttp.ClientTimeout(total=15)
+            ) as resp:
+                if resp.status != 200:
+                    return None
+                quote = await resp.json()
+
+            # Step 2: Get swap transaction
+            pk_raw = PRIVATE_KEY_BOT.strip()
+            try:
+                from base58 import b58decode
+                pk_bytes = b58decode(pk_raw)
+            except Exception:
+                pk_bytes = bytes.fromhex(pk_raw)
+            keypair = Keypair.from_bytes(pk_bytes)
+            user_pubkey = str(keypair.pubkey())
+
+            async with session.post(
+                "https://quote-api.jup.ag/v6/swap",
+                json={
+                    "quoteResponse": quote,
+                    "userPublicKey": user_pubkey,
+                    "wrapAndUnwrapSol": True,
+                    "dynamicComputeUnitLimit": True,
+                    "prioritizationFeeLamports": 500000,
+                },
+                timeout=aiohttp.ClientTimeout(total=15)
+            ) as resp:
+                if resp.status != 200:
+                    return None
+                swap_data = await resp.json()
+
+            # Step 3: Sign and send
+            import base64 as b64
+            tx_bytes = b64.b64decode(swap_data["swapTransaction"])
+            tx = VersionedTransaction.from_bytes(tx_bytes)
+            signed_tx = VersionedTransaction(tx.message, [keypair])
+            opts = TxOpts(skip_preflight=True, preflight_commitment="confirmed")
+            result = _sol_client.send_transaction(signed_tx, opts=opts)
+            sig = str(result.value)
+            log.info(f"Jupiter swap OK: {sig}")
+            return sig
+
+    except Exception as e:
+        log.error(f"Jupiter swap error: {e}")
+        return None
+
+# =============================================================================
+# 16. BINANCE TRADER
+# =============================================================================
+class BinanceTrader:
+    def __init__(self, api_key: str, secret_key: str, testnet: bool = True):
+        self.api_key = api_key
+        self.secret_key = secret_key
+        self.testnet = testnet
+        self.client: Optional[BinanceClient] = None
+        self.active = False
+        if api_key and secret_key:
+            try:
+                self.client = BinanceClient(api_key, secret_key, testnet=testnet)
+                self.active = True
+                log.info(f"BinanceTrader init OK (testnet={testnet})")
+            except Exception as e:
+                log.warning(f"BinanceTrader init failed: {e}")
+
+    def get_account_balance(self, asset: str = "USDT") -> float:
+        if not self.client:
+            return 0.0
+        try:
+            info = self.client.get_asset_balance(asset=asset)
+            return float(info["free"]) if info else 0.0
+        except Exception as e:
+            log.debug(f"get_account_balance: {e}")
+            return 0.0
+
+    def create_market_buy_order(self, symbol: str, quote_amount_usdt: float) -> Optional[dict]:
+        if not self.client:
+            return None
+        try:
+            order = self.client.order_market_buy(symbol=symbol, quoteOrderQty=round(quote_amount_usdt, 2))
+            log.info(f"Binance BUY {symbol}: ${quote_amount_usdt}")
+            return order
+        except (BinanceAPIException, BinanceOrderException) as e:
+            log.error(f"Binance buy error [{symbol}]: {e}")
+            return None
+
+    def create_market_sell_order(self, symbol: str, quantity: float) -> Optional[dict]:
+        if not self.client:
+            return None
+        try:
+            order = self.client.order_market_sell(symbol=symbol, quantity=quantity)
+            log.info(f"Binance SELL {symbol}: qty={quantity}")
+            return order
+        except (BinanceAPIException, BinanceOrderException) as e:
+            log.error(f"Binance sell error [{symbol}]: {e}")
+            return None
+
+    async def execute_buy_async(self, symbol: str, usdt_amount: float, chat_id: int) -> bool:
+        loop = asyncio.get_running_loop()
+        order = await loop.run_in_executor(
+            None, self.create_market_buy_order, symbol, usdt_amount
+        )
+        if order:
+            await bot.send_message(
+                chat_id,
+                f"BINANCE BUY {symbol}: ${usdt_amount:.2f}\nOrderID: {order.get('orderId', 'N/A')}"
+            )
+            return True
+        return False
+
+    def stop(self):
+        self.active = False
+
+binance_trader = BinanceTrader(BINANCE_API_KEY, BINANCE_SECRET_KEY, BINANCE_TESTNET)
+
+# =============================================================================
+# 17. RESEARCH ORCHESTRATOR (UNIFIED)
+# =============================================================================
+class ResearchOrchestrator:
+    """Menggabungkan brain, web, dan AI untuk riset."""
+
+    def __init__(self, brain: UnifiedKnowledgeBase, web: WebResearchEngine):
+        self.brain = brain
+        self.web = web
+        event_bus.subscribe("research_request", self.on_research_request)
+
+    async def research(self, query: str) -> str:
+        # Cek brain dulu
+        brain_answer = self.brain.answer_from_brain(query)
+        if brain_answer:
+            return brain_answer
+
+        # Web research
+        web_result = await self.web.research(query)
+        summary = web_result.get("summary", "No results found.")
+        if summary:
+            # Simpan ke brain
+            self.brain.add_knowledge([{
+                "id": f"web_{int(time.time())}",
+                "topic": "research",
+                "statement": summary[:500],
+                "epistemic_type": "fact",
+                "tags": ["web", query[:30]]
+            }])
+
+        # AI hybrid jika web summary kurang
+        if len(summary) < 100:
+            ai_summary = await ai_hybrid(f"Jelaskan tentang: {query}")
+            if ai_summary:
+                summary = ai_summary
+
+        return f"🔍 [Research] {query}\n\n{summary[:1500]}"
+
+    async def on_research_request(self, data: dict):
+        query = data.get("query", "")
+        if query:
+            result = await self.research(query)
+            await event_bus.publish("research_completed", {
+                "query": query,
+                "result": result,
+                "topic": query[:50]
+            })
+
+research_orchestrator = ResearchOrchestrator(unified_brain, web_engine)
+
+# (Lanjut ke Bagian 4: UHEE Engine, Intel Layers, Trading Knowledge, AutoTrader)
+
+# =============================================================================
+# 18. UHEE ENGINE (Unified Hypothesis Evolutionary Engine)
+# =============================================================================
+class HypothesisType(Enum):
+    CORRELATION = "correlation"
+    THRESHOLD = "threshold"
+    PATTERN = "pattern"
+    CAUSAL = "causal"
+
+class HypothesisStatus(Enum):
+    CANDIDATE = "candidate"
+    VALIDATED = "validated"
+    REJECTED = "rejected"
+    ACTIVE = "active"
+
+@dataclass
+class Hypothesis:
+    id: str
+    type: HypothesisType
+    antecedent: Dict   # {"feature": ..., "op": ..., "value": ...}
+    consequent: Dict   # {"feature": ..., "direction": ..., "magnitude": ...}
+    confidence: float = 0.0
+    support: float = 0.0
+    fitness: float = 0.0
+    status: HypothesisStatus = HypothesisStatus.CANDIDATE
+    generation: int = 0
+    validated_at: Optional[float] = None
+    metadata: Dict = field(default_factory=dict)
+
+class UHEEEngine:
+    """Evolusi hipotesis dari data numerik (trading dan scraped)."""
+
+    def __init__(self, population_size: int = 30, mutation_rate: float = 0.2, elite_size: int = 5):
+        self.population_size = population_size
+        self.mutation_rate = mutation_rate
+        self.elite_size = elite_size
+        self.cycle_count = 0
+        self.population: List[Hypothesis] = []
+        self.history: List[Dict] = []
+        self._backtest_window = 20
+        self._backtest_step = 5
+
+    def _generate_initial_population(self, df: pd.DataFrame) -> List[Hypothesis]:
+        numeric_cols = list(df.select_dtypes(include=[np.number]).columns)
+        if len(numeric_cols) < 2:
+            return []
+        hypotheses = []
+        for i in range(self.population_size):
+            ant_feat = random.choice(numeric_cols)
+            cons_feat = random.choice(numeric_cols)
+            col = df[ant_feat].dropna()
+            if col.empty:
+                continue
+            threshold = float(col.quantile(random.choice([0.25, 0.5, 0.75])))
+            hyp = Hypothesis(
+                id=f"hyp_{self.cycle_count}_{i}_{int(time.time())}",
+                type=random.choice(list(HypothesisType)),
+                antecedent={"feature": ant_feat, "op": random.choice(["gt", "lt", "gte", "lte"]), "value": threshold},
+                consequent={"feature": cons_feat, "direction": random.choice(["up", "down"]), "magnitude": random.uniform(0.01, 0.1)},
+                generation=self.cycle_count,
+            )
+            hypotheses.append(hyp)
+        return hypotheses
+
+    def _evaluate_hypothesis(self, hyp: Hypothesis, df: pd.DataFrame) -> Hypothesis:
+        """Backtest hipotesis pada data."""
+        df = df.select_dtypes(include=[np.number]).fillna(method="ffill")
+        if len(df) < self._backtest_window * 2:
+            hyp.fitness = 0.0
+            return hyp
+
+        ant_feat = hyp.antecedent.get("feature")
+        op = hyp.antecedent.get("op", "gt")
+        val = hyp.antecedent.get("value", 0)
+        cons_feat = hyp.consequent.get("feature")
+        direction = hyp.consequent.get("direction", "up")
+        magnitude = hyp.consequent.get("magnitude", 0.01)
+
+        ops = {
+            "gt": lambda x, y: x > y, "lt": lambda x, y: x < y,
+            "gte": lambda x, y: x >= y, "lte": lambda x, y: x <= y,
+            "eq": lambda x, y: abs(x - y) < y * 0.01,
+        }
+        compare = ops.get(op, ops["gt"])
+
+        fires = 0
+        hits = 0
+        n = len(df)
+        for i in range(0, n - self._backtest_window * 2, self._backtest_step):
+            window = df.iloc[i : i + self._backtest_window]
+            next_w = df.iloc[i + self._backtest_window : i + self._backtest_window * 2]
+            if ant_feat in window.columns:
+                if compare(window[ant_feat].iloc[-1], val):
+                    fires += 1
+                    if cons_feat in next_w.columns and len(next_w) >= 2:
+                        pct = (next_w[cons_feat].iloc[-1] - next_w[cons_feat].iloc[0]) / (next_w[cons_feat].iloc[0] or 1)
+                        if (direction == "up" and pct >= magnitude) or (direction == "down" and pct <= -magnitude):
+                            hits += 1
+
+        if fires == 0:
+            hyp.confidence = 0.0
+            hyp.support = 0.0
+            hyp.fitness = 0.0
+        else:
+            hyp.confidence = hits / fires
+            hyp.support = fires / max(1, (n - self._backtest_window * 2) / self._backtest_step)
+            if hyp.confidence + hyp.support > 0:
+                hyp.fitness = (2 * hyp.confidence * hyp.support) / (hyp.confidence + hyp.support)
+        return hyp
+
+    def _mutate(self, hyp: Hypothesis) -> Hypothesis:
+        new = copy.deepcopy(hyp)
+        new.id = f"mutant_{int(time.time())}_{random.randint(0, 9999)}"
+        if random.random() < self.mutation_rate:
+            new.antecedent["value"] *= random.uniform(0.8, 1.2)
+        if random.random() < self.mutation_rate:
+            new.consequent["magnitude"] *= random.uniform(0.8, 1.2)
+        if random.random() < self.mutation_rate:
+            new.consequent["direction"] = "up" if new.consequent["direction"] == "down" else "down"
+        new.generation += 1
+        return new
+
+    def run_cycle(self, data: pd.DataFrame, source_name: str = "unknown") -> Dict:
+        """Satu siklus evolusi."""
+        if data.empty or len(data) < 10:
+            return {"status": "error", "error": "insufficient_data", "top_hypotheses": []}
+
+        # Inisialisasi populasi jika kosong
+        if not self.population:
+            self.population = self._generate_initial_population(data)
+        else:
+            elites = sorted(self.population, key=lambda h: h.fitness, reverse=True)[:self.elite_size]
+            new_pop = list(elites)
+            while len(new_pop) < self.population_size:
+                parent = random.choice(elites)
+                new_pop.append(self._mutate(parent))
+            self.population = new_pop
+
+        # Evaluasi
+        for hyp in self.population:
+            self._evaluate_hypothesis(hyp, data)
+
+        self.population.sort(key=lambda h: h.fitness, reverse=True)
+        top = self.population[:5]
+
+        # Promosikan hipotesis valid
+        for hyp in top:
+            if hyp.fitness >= 0.6:
+                hyp.status = HypothesisStatus.VALIDATED
+                hyp.validated_at = time.time()
+
+        stats = {
+            "best": top[0].fitness if top else 0,
+            "mean": statistics.mean(h.fitness for h in self.population) if self.population else 0,
+            "worst": self.population[-1].fitness if self.population else 0,
+        }
+        self.cycle_count += 1
+        result = {
+            "status": "ok",
+            "cycle": self.cycle_count,
+            "top_hypotheses": [asdict(h) for h in top],
+            "stats": stats,
+            "source": source_name,
+        }
+        self.history.append(result)
+        return result
+
+uhee_engine = UHEEEngine()
+
+# =============================================================================
+# 19. FINANCIAL & OPERATIONAL INTELLIGENCE
+# =============================================================================
+class FinancialIntelligence:
+    """Melacak performa trading dan menyesuaikan parameter."""
+
+    def __init__(self):
+        self.weights = {
+            "max_trade_pct": 0.05,
+            "take_profit_mult": 2.0,
+            "stop_loss_pct": -15.0,
+            "min_volume": 50_000,
+            "min_liquidity": 10_000,
+        }
+        self._history: List[Dict] = []
+
+    async def record_outcome(self, domain: str, action: dict, result: dict):
+        entry = {"domain": domain, "action": action, "result": result, "ts": time.time()}
+        self._history.append(entry)
+        if len(self._history) % 10 == 0:
+            self._adapt_weights()
+
+    def _adapt_weights(self):
+        recent = [h for h in self._history[-20:] if h["domain"] == "crypto"]
+        if len(recent) < 5:
+            return
+        profits = [h["result"].get("profit_pct", 0) for h in recent]
+        win_rate = sum(1 for p in profits if p > 0) / len(profits)
+        if win_rate < 0.4:
+            self.weights["stop_loss_pct"] = max(-10.0, self.weights["stop_loss_pct"] + 2)
+            self.weights["max_trade_pct"] = max(0.02, self.weights["max_trade_pct"] * 0.9)
+        elif win_rate > 0.7:
+            self.weights["take_profit_mult"] = min(5.0, self.weights["take_profit_mult"] * 1.05)
+
+    def get_strategy(self) -> dict:
+        return dict(self.weights)
+
+financial_intel = FinancialIntelligence()
+
+class OperationalIntelligence:
+    """Melacak kesehatan sistem."""
+
+    def __init__(self):
+        self._errors: deque = deque(maxlen=200)
+        self._ai_usage: deque = deque(maxlen=100)
+
+    async def record_error(self, module: str, error: str):
+        self._errors.append({"module": module, "error": error, "ts": time.time()})
+        log.error(f"[OpIntel] {module}: {error}")
+
+    async def record_ai_usage(self, model: str, response_time: float):
+        self._ai_usage.append({"model": model, "response_time": response_time, "ts": time.time()})
+
+    async def get_health(self) -> Dict:
+        now = time.time()
+        recent_err = len([e for e in self._errors if now - e["ts"] < 3600])
+        return {
+            "errors_last_hour": recent_err,
+            "status": "degraded" if recent_err > 20 else "healthy",
+        }
+
+op_intel = OperationalIntelligence()
+
+# =============================================================================
+# 20. TRADING KNOWLEDGE BASE (Graph Reasoning Integration)
+# =============================================================================
+class TradingKnowledgeBase:
+    """Basis pengetahuan trading yang di-load dari AI KG Reasoning Engine."""
+
+    _KG_PROMPT = """\
+KAMU ADALAH KNOWLEDGE GRAPH REASONING ENGINE.
+
+TUGAS:
+Membangun memory sistem AI berbasis RAG dan Graph reasoning
+untuk domain: {topic}
+
+OUTPUT: JSON ARRAY VALID SAJA — tanpa teks tambahan, tanpa komentar.
+
+SCHEMA NODE:
+{{
+  "id": "unique-id",
+  "topic": "string",
+  "subtopic": "string",
+  "statement": "maks 2 kalimat, factual, netral",
+  "epistemic_type": "fact | heuristic | decision_rule | failure_mode | causal",
+  "confidence_score": 0.0-1.0,
+  "update_policy": "static | dynamic | event_driven | versioned",
+  "utility_class": "decision_support | risk_control | inference_only",
+  "tags": ["keyword1","keyword2"],
+  "relations": [{{"type": "prerequisite|enables|refines|conflicts|causal_of|mitigates", "target_id": "id-lain"}}]
+}}
+
+PRIORITY: failure_mode > decision_rule > causal > heuristic > fact
+ATOMICITY: 1 node = 1 konsep tunggal, maks 2 kalimat.
+ANTI-SPEKULASI: hanya fakta dan hubungan yang jelas secara umum.
+OPTIMIZATION: kompak, kaya relasi, siap RAG retrieval.
+
+Jika luas, tambahkan di akhir: [CONTINUE_AVAILABLE: {topic}_PART_X]
+"""
+
+    def __init__(self, brain: UnifiedKnowledgeBase):
+        self.brain = brain
+
+    async def load_from_ai(self, chat_id: int = None):
+        """Ambil pengetahuan trading dari AI."""
+        topics = [
+            "Solana meme coin entry signals and decision rules",
+            "Solana meme coin exit rules and failure modes",
+            "Crypto trading risk management and position sizing",
+            "Market condition analysis for volatile assets",
+            "On-chain indicators and volume analysis heuristics",
+        ]
+        total_nodes = 0
+        for topic in topics:
+            try:
+                prompt = self._KG_PROMPT.format(topic=topic)
+                response = await ai_hybrid(prompt)
+                # Ekstrak JSON
+                clean = re.sub(r"^```(?:json)?\s*", "", response.strip(), flags=re.MULTILINE)
+                clean = re.sub(r"```\s*$", "", clean.strip(), flags=re.MULTILINE)
+                m = re.search(r'\[.*\]', clean, re.DOTALL)
+                if m:
+                    clean = m.group()
+                clean = re.sub(r',\s*}', '}', clean)
+                clean = re.sub(r',\s*]', ']', clean)
+                try:
+                    nodes = json.loads(clean)
+                except json.JSONDecodeError:
+                    log.warning(f"KG JSON error for: {topic}")
+                    continue
+                if not isinstance(nodes, list):
+                    continue
+                # Validasi ringan
+                valid_nodes = []
+                for i, node in enumerate(nodes):
+                    if not isinstance(node, dict) or not node.get("statement"):
+                        continue
+                    node.setdefault("id", f"tkb_{int(time.time())}_{i}")
+                    node.setdefault("topic", topic)
+                    node.setdefault("subtopic", "trading")
+                    node.setdefault("epistemic_type", "heuristic")
+                    node.setdefault("confidence_score", 0.75)
+                    node.setdefault("update_policy", "dynamic")
+                    node.setdefault("utility_class", "decision_support")
+                    node.setdefault("tags", [])
+                    node.setdefault("relations", [])
+                    valid_nodes.append(node)
+                if valid_nodes:
+                    added = self.brain.add_knowledge(valid_nodes)
+                    total_nodes += added
+                    log.info(f"KG loaded [{topic}]: {added} nodes")
+            except Exception as e:
+                log.warning(f"load_from_ai error [{topic}]: {e}")
+        if chat_id and total_nodes > 0:
+            await bot.send_message(chat_id, f"✅ Trading Knowledge Graph loaded: {total_nodes} nodes")
+
+    def get_entry_rules(self) -> List[str]:
+        nodes = self.brain.query("entry signal", limit=5, epistemic_filter=["decision_rule"])
+        return [n["statement"] for n in nodes]
+
+    def get_exit_rules(self) -> List[str]:
+        nodes = self.brain.query("exit signal", limit=5, epistemic_filter=["decision_rule", "failure_mode"])
+        return [n["statement"] for n in nodes]
+
+    def get_risk_params(self) -> Dict:
+        return {
+            "daily_loss_limit": 8.0,
+            "max_consecutive_losses": 5,
+            "max_open_positions": 3,
+            "max_trade_pct": 0.05,
+            "stop_loss_pct": 8.0,
+            "take_profit_pct": 15.0,
+            "trailing_stop_pct": 3.0,
+        }
+
+trading_knowledge = TradingKnowledgeBase(unified_brain)
+
+# =============================================================================
+# 21. FREE INTEL MANAGER (CoinGecko, DexScreener, Birdeye, dll.)
+# =============================================================================
+class FreeIntelManager:
+    """Mengumpulkan intel dari berbagai sumber gratis."""
+
+    def __init__(self):
+        self._last_report: Dict = {}
+        self._last_update = 0
+
+    async def gather_intel(self) -> Dict:
+        now = time.time()
+        if now - self._last_update < 120 and self._last_report:
+            return self._last_report
+
+        report = {"ts": now, "trending": [], "whale_sentiment": "neutral", "smart_money": False, "global_market": {}}
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                # CoinGecko global
+                async with session.get("https://api.coingecko.com/api/v3/global", timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        d = data.get("data", {})
+                        report["global_market"] = {
+                            "total_market_cap_usd": d.get("total_market_cap", {}).get("usd", 0),
+                            "btc_dominance": d.get("market_cap_percentage", {}).get("btc", 0),
+                            "market_cap_change_24h": d.get("market_cap_change_percentage_24h_usd", 0),
+                        }
+                        change = report["global_market"].get("market_cap_change_24h", 0)
+                        if change > 5:
+                            report["whale_sentiment"] = "bullish"
+                        elif change < -5:
+                            report["whale_sentiment"] = "bearish"
+
+                # CoinGecko trending
+                async with session.get("https://api.coingecko.com/api/v3/search/trending", timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        report["trending"] = [
+                            {
+                                "id": c["item"]["id"],
+                                "name": c["item"]["name"],
+                                "symbol": c["item"]["symbol"],
+                                "market_cap_rank": c["item"].get("market_cap_rank", 999),
+                                "score": c["item"].get("score", 0),
+                                "source": "coingecko",
+                            }
+                            for c in data.get("coins", [])
+                        ]
+
+                # DexScreener boosted
+                async with session.get("https://api.dexscreener.com/token-boosts/top/v1?chainId=solana", timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        if isinstance(data, list):
+                            report["boosted"] = [{"address": t.get("tokenAddress", ""), "source": "dexscreener"} for t in data[:10]]
+                        else:
+                            report["boosted"] = []
+        except Exception as e:
+            log.debug(f"gather_intel error: {e}")
+
+        self._last_report = report
+        self._last_update = now
+        return report
+
+free_intel = FreeIntelManager()
+
+# =============================================================================
+# 22. MEME COIN SCANNER
+# =============================================================================
+async def scan_meme_coins() -> List[Dict]:
+    """Scan meme coins via DexScreener."""
+    signals = []
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                "https://api.dexscreener.com/latest/dex/tokens/solana",
+                timeout=aiohttp.ClientTimeout(total=15)
+            ) as resp:
+                if resp.status != 200:
+                    return signals
+                data = await resp.json()
+                pairs = data.get("pairs", [])
+    except Exception as e:
+        log.debug(f"scan_meme_coins error: {e}")
+        return signals
+
+    for pair in pairs[:50]:
+        try:
+            mc = float(pair.get("fdv") or pair.get("marketCap") or 0)
+            vol = float(pair.get("volume", {}).get("h24", 0))
+            price = float(pair.get("priceUsd") or 0)
+            mint = pair.get("baseToken", {}).get("address", "")
+            name = pair.get("baseToken", {}).get("name", "")
+            symbol = pair.get("baseToken", {}).get("symbol", "")
+            txns = pair.get("txns", {}).get("h24", {})
+            buys = txns.get("buys", 0)
+            sells = txns.get("sells", 0)
+
+            if not mint or mc > 10_000_000 or mc < 5_000:
+                continue
+
+            # Simple score
+            score = 0
+            if 10_000 <= mc <= 100_000:
+                score += 30
+            elif 100_000 <= mc <= 1_000_000:
+                score += 40
+            elif 1_000_000 <= mc <= 5_000_000:
+                score += 25
+            ratio = vol / mc if mc > 0 else 0
+            if ratio >= 5:
+                score += 30
+            elif ratio >= 2:
+                score += 20
+            elif ratio >= 0.5:
+                score += 10
+
+            buy_ratio = buys / (buys + sells) if (buys + sells) > 0 else 0.5
+            if buy_ratio > 0.6:
+                score += 10
+
+            if score >= 40:
+                signals.append({
+                    "mint": mint, "name": name, "symbol": symbol, "score": score,
+                    "market_cap": mc, "volume_h24": vol, "price_usd": price,
+                    "buy_ratio": buy_ratio, "buys": buys, "sells": sells,
+                })
+        except Exception:
+            continue
+
+    signals.sort(key=lambda x: x["score"], reverse=True)
+    return signals[:20]
+
+async def get_token_data(mint: str) -> Optional[Dict]:
+    """Ambil data token dari DexScreener."""
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                f"https://api.dexscreener.com/latest/dex/tokens/{mint}",
+                timeout=aiohttp.ClientTimeout(total=10)
+            ) as resp:
+                if resp.status != 200:
+                    return None
+                data = await resp.json()
+                pairs = data.get("pairs", [])
+                if not pairs:
+                    return None
+                pair = pairs[0]
+                txns = pair.get("txns", {}).get("h24", {})
+                return {
+                    "mint": mint,
+                    "name": pair.get("baseToken", {}).get("name", ""),
+                    "symbol": pair.get("baseToken", {}).get("symbol", ""),
+                    "price_usd": float(pair.get("priceUsd") or 0),
+                    "market_cap": float(pair.get("fdv") or pair.get("marketCap") or 0),
+                    "volume_h24": float(pair.get("volume", {}).get("h24", 0)),
+                    "price_change_h24": float(pair.get("priceChange", {}).get("h24", 0)),
+                    "liquidity_usd": float(pair.get("liquidity", {}).get("usd", 0)),
+                    "txns_h24_buys": txns.get("buys", 0),
+                    "txns_h24_sells": txns.get("sells", 0),
+                    "pair_address": pair.get("pairAddress", ""),
+                }
+    except Exception as e:
+        log.debug(f"get_token_data error [{mint[:12]}]: {e}")
+        return None
+
+# (Lanjut ke Bagian 5: AutoTrader, Exit/Risk Manager, Trading Loop)
+
+# =============================================================================
+# 23. SPLIT ENTRY, FLOW TRACKER, SMART MONEY, COOLDOWN
+# =============================================================================
+class SplitEntryManager:
+    def __init__(self, split_ratio: float = 0.7, max_entries: int = 3):
+        self.split_ratio = split_ratio
+        self.max_entries = max_entries
+        self._positions: Dict[str, Dict] = {}
+
+    def first_entry(self, mint: str, total_amount: float, entry_price: float) -> float:
+        amount = total_amount * self.split_ratio
+        self._positions[mint] = {
+            "total": total_amount, "entries": 1,
+            "entry_price": entry_price,
+            "remaining": total_amount * (1 - self.split_ratio)
+        }
+        return amount
+
+    def can_add(self, mint: str) -> bool:
+        pos = self._positions.get(mint, {})
+        return pos.get("entries", 0) < self.max_entries and pos.get("remaining", 0) > 0
+
+    async def check_second_entry(self, mint: str, current_price: float) -> float:
+        pos = self._positions.get(mint, {})
+        if not pos or not self.can_add(mint):
+            return 0.0
+        entry_price = pos.get("entry_price", current_price)
+        if entry_price > 0 and (current_price - entry_price) / entry_price * 100 >= 1.0:
+            remaining = pos.get("remaining", 0)
+            pos["entries"] += 1
+            pos["remaining"] = 0
+            return remaining
+        return 0.0
+
+    def remove(self, mint: str):
+        self._positions.pop(mint, None)
+
+class FlowTracker:
+    """Mendeteksi spike volume dan buy/sell pressure."""
+    def __init__(self, window: int = 5):
+        self.window = window
+        self._data: Dict[str, Dict] = defaultdict(lambda: {"volumes": deque(maxlen=20), "buys": deque(maxlen=20), "sells": deque(maxlen=20)})
+
+    async def update(self, mint: str):
+        data = await get_token_data(mint)
+        if data:
+            d = self._data[mint]
+            d["volumes"].append(data.get("volume_h24", 0))
+            d["buys"].append(data.get("txns_h24_buys", 0))
+            d["sells"].append(data.get("txns_h24_sells", 0))
+
+    def analyze(self, mint: str) -> Dict:
+        d = self._data.get(mint, {"volumes": deque(), "buys": deque(), "sells": deque()})
+        vols = list(d["volumes"])
+        buys = list(d["buys"])
+        sells = list(d["sells"])
+        if not vols:
+            return {"flow_score": 50, "buy_ratio": 0.5, "vol_spike": 1.0, "trend": "neutral"}
+
+        vol_spike = vols[-1] / vols[-2] if len(vols) >= 2 and vols[-2] > 0 else 1.0
+        total_buys = sum(buys[-self.window:]) if buys else 0
+        total_sells = sum(sells[-self.window:]) if sells else 0
+        buy_ratio = total_buys / (total_buys + total_sells) if (total_buys + total_sells) > 0 else 0.5
+
+        score = 50
+        if vol_spike >= 1.5: score += 20
+        if buy_ratio > 0.65: score += 20
+        elif buy_ratio < 0.35: score -= 20
+        trend = "bullish" if score > 65 else "bearish" if score < 35 else "neutral"
+        return {"flow_score": max(0, min(100, score)), "buy_ratio": buy_ratio, "vol_spike": vol_spike, "trend": trend}
+
+class SmartMoneyDetector:
+    def __init__(self, large_tx_threshold_usd: float = 10_000):
+        self.threshold = large_tx_threshold_usd
+
+    async def analyze(self, mint: str, data: Dict) -> Dict:
+        result = {"signal": "neutral", "confidence": 0.0, "whale_txns": 0}
+        vol = data.get("volume_h24", 0)
+        mc = data.get("market_cap", 0)
+        buys = data.get("txns_h24_buys", 0)
+        sells = data.get("txns_h24_sells", 0)
+        if vol <= 0 or mc <= 0:
+            return result
+        vol_ratio = vol / mc
+        total_txns = buys + sells
+        if total_txns > 0:
+            avg_tx = vol / total_txns
+            if avg_tx > self.threshold:
+                result["whale_txns"] = int(total_txns * (avg_tx / self.threshold))
+        buy_ratio = buys / total_txns if total_txns > 0 else 0.5
+        if result["whale_txns"] > 0 and buy_ratio > 0.6:
+            result["signal"] = "whale_accumulation"
+            result["confidence"] = min(0.9, buy_ratio * vol_ratio / 10)
+        elif result["whale_txns"] > 0 and buy_ratio < 0.4:
+            result["signal"] = "whale_dumping"
+            result["confidence"] = min(0.9, (1 - buy_ratio) * vol_ratio / 10)
+        return result
+
+class CooldownTracker:
+    def __init__(self, cooldown_minutes: int = 15):
+        self.cooldown = cooldown_minutes * 60
+        self._last: Dict[str, float] = {}
+
+    def can_check(self, mint: str) -> bool:
+        now = time.time()
+        if now - self._last.get(mint, 0) > self.cooldown:
+            self._last[mint] = now
+            return True
+        return False
+
+    def reset(self, mint: str):
+        self._last.pop(mint, None)
+
+# =============================================================================
+# 24. EXIT MANAGER (Trailing Stop, TP/SL Dinamis)
+# =============================================================================
+class ExitManager:
+    def __init__(self, trailing_pct: float = 3.0, dynamic_tp_pct: float = 20.0, dynamic_sl_pct: float = -12.0):
+        self.trailing_pct = trailing_pct
+        self.dynamic_tp_pct = dynamic_tp_pct
+        self.dynamic_sl_pct = dynamic_sl_pct
+        self._positions: Dict[str, Dict] = {}
+
+    def register_position(self, mint: str, entry_price: float, volume: float):
+        self._positions[mint] = {
+            "entry_price": entry_price,
+            "peak_price": entry_price,
+            "peak_volume": volume,
+        }
+
+    def update_price(self, mint: str, current_price: float):
+        pos = self._positions.get(mint)
+        if pos and current_price > pos["peak_price"]:
+            pos["peak_price"] = current_price
+
+    def should_exit(self, mint: str, current_price: float, flow_score: float, buy_ratio: float, current_volume: float = 0) -> Tuple[bool, str]:
+        pos = self._positions.get(mint)
+        if not pos:
+            return False, ""
+        entry = pos["entry_price"]
+        if entry <= 0:
+            return False, ""
+        profit_pct = (current_price - entry) / entry * 100
+        # 1. Take Profit
+        if profit_pct >= self.dynamic_tp_pct:
+            return True, f"take_profit({profit_pct:.1f}%)"
+        # 2. Stop Loss
+        if profit_pct <= self.dynamic_sl_pct:
+            return True, f"stop_loss({profit_pct:.1f}%)"
+        # 3. Trailing Stop
+        peak = pos["peak_price"]
+        if peak > entry:
+            drawdown = (current_price - peak) / peak * 100
+            if drawdown <= -self.trailing_pct:
+                return True, f"trailing_stop(drawdown={drawdown:.1f}%)"
+        # 4. Flow score collapse
+        if flow_score < 25 and profit_pct > 3:
+            return True, f"flow_exit(score={flow_score:.0f})"
+        # 5. Buy pressure collapse
+        if buy_ratio < 0.3 and profit_pct > 3:
+            return True, f"buy_pressure_collapse({buy_ratio:.2f})"
+        return False, ""
+
+    def remove_position(self, mint: str):
+        self._positions.pop(mint, None)
+
+# =============================================================================
+# 25. ENHANCED RISK MANAGER
+# =============================================================================
+class EnhancedRiskManager:
+    def __init__(self, max_open_positions: int = 3, daily_loss_limit: float = -8.0, consecutive_loss_limit: int = 5):
+        self.max_open_positions = max_open_positions
+        self.daily_loss_limit = daily_loss_limit
+        self.consecutive_loss_limit = consecutive_loss_limit
+        self._daily_loss_pct = 0.0
+        self._consecutive_losses = 0
+        self._kill_switch = False
+
+    def record_loss(self, loss_pct: float):
+        if loss_pct >= 0:
+            self._consecutive_losses = 0
+            return
+        self._consecutive_losses += 1
+        self._daily_loss_pct += loss_pct
+
+    def is_kill_switch(self) -> bool:
+        if self._kill_switch:
+            return True
+        if self._daily_loss_pct <= self.daily_loss_limit:
+            self._kill_switch = True
+            log.warning(f"Risk kill: daily loss {self._daily_loss_pct:.1f}%")
+            return True
+        if self._consecutive_losses >= self.consecutive_loss_limit:
+            self._kill_switch = True
+            log.warning(f"Risk kill: {self._consecutive_losses} consecutive losses")
+            return True
+        return False
+
+    def can_open_position(self, current_positions: int) -> bool:
+        return not self.is_kill_switch() and current_positions < self.max_open_positions
+
+    def reset_daily(self):
+        self._daily_loss_pct = 0.0
+        self._consecutive_losses = 0
+        self._kill_switch = False
+
+# =============================================================================
+# 26. TRADE LOGGER
+# =============================================================================
+class EnhancedTradeLogger:
+    def __init__(self, db_path: str = DB_FILE_ALQALB):
+        self.db_path = db_path
+        with sqlite3.connect(db_path) as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS trade_signals_v2 (
+                    id TEXT PRIMARY KEY, ts REAL, mint TEXT, symbol TEXT, score INTEGER,
+                    market_cap REAL, volume REAL, price REAL, buy_ratio REAL,
+                    flow_score REAL, market_condition TEXT, result TEXT,
+                    entry_price REAL, exit_price REAL, profit_percent REAL,
+                    duration_min REAL, reason TEXT, simulated INTEGER DEFAULT 1
+                )
+            """)
+
+    def log_signal(self, mint: str, symbol: str, score: int, data: Dict, market_cond: str) -> str:
+        sig_id = str(uuid.uuid4())[:12]
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                "INSERT INTO trade_signals_v2 (id,ts,mint,symbol,score,market_cap,volume,price,buy_ratio,flow_score,market_condition,result,entry_price) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (sig_id, time.time(), mint, symbol, score,
+                 data.get("market_cap", 0), data.get("volume_h24", 0),
+                 data.get("price_usd", 0),
+                 data.get("txns_h24_buys", 0) / max(1, data.get("txns_h24_buys", 0) + data.get("txns_h24_sells", 0)),
+                 50.0, market_cond, None, data.get("price_usd", 0))
+            )
+        return sig_id
+
+    def log_outcome(self, mint: str, entry_price: float, exit_price: float,
+                    duration_min: float, profit_pct: float, result: str, reason: str):
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """UPDATE trade_signals_v2 SET result=?, exit_price=?, profit_percent=?,
+                   duration_min=?, reason=? WHERE mint=? AND result IS NULL
+                   ORDER BY ts DESC LIMIT 1""",
+                (result, exit_price, profit_pct, duration_min, reason, mint)
+            )
+
+    def get_expected_value(self, min_trades: int = 50) -> Dict:
+        with sqlite3.connect(self.db_path) as conn:
+            rows = conn.execute(
+                "SELECT profit_percent FROM trade_signals_v2 WHERE result IS NOT NULL AND profit_percent IS NOT NULL ORDER BY ts DESC LIMIT ?",
+                (max(min_trades, 200),)
+            ).fetchall()
+        if len(rows) < min_trades:
+            return {"status": "insufficient_data", "count": len(rows)}
+        profits = [r[0] for r in rows]
+        wins = [p for p in profits if p > 0]
+        losses = [p for p in profits if p <= 0]
+        win_rate = len(wins) / len(profits)
+        avg_win = statistics.mean(wins) if wins else 0
+        avg_loss = statistics.mean(losses) if losses else 0
+        ev = win_rate * avg_win + (1 - win_rate) * avg_loss
+        return {
+            "status": "ok", "count": len(profits),
+            "win_rate": win_rate, "avg_win_pct": avg_win,
+            "avg_loss_pct": avg_loss, "expected_value_pct": ev,
+        }
+
+# =============================================================================
+# 27. SMART TRADE PLANNER
+# =============================================================================
+class SmartTradePlanner:
+    def __init__(self):
+        self._price_history: Dict[str, deque] = defaultdict(lambda: deque(maxlen=50))
+        self._vol_history: Dict[str, deque] = defaultdict(lambda: deque(maxlen=50))
+        self._entry_count: Dict[str, int] = defaultdict(int)
+
+    def update_history(self, mint: str, price: float, volume: float):
+        self._price_history[mint].append(price)
+        self._vol_history[mint].append(volume)
+
+    def analyze_entry(self, mint: str, data: Dict, intel_report: Dict, market_cond: str) -> Tuple[bool, float, str]:
+        prices = list(self._price_history[mint])
+        volumes = list(self._vol_history[mint])
+        confidence = 0.0
+        reasons = []
+
+        # RSI check
+        if len(prices) >= 14:
+            deltas = [prices[i+1] - prices[i] for i in range(len(prices)-1)]
+            gains = sum(max(0, d) for d in deltas[-14:])
+            losses = sum(max(0, -d) for d in deltas[-14:])
+            rsi = 100 - (100 / (1 + gains / losses)) if losses > 0 else 100
+            if rsi > 80:
+                return False, 0, "RSI_overbought"
+            if 30 <= rsi <= 70:
+                confidence += 0.15
+                reasons.append(f"RSI_ok({rsi:.0f})")
+
+        # Volume spike
+        if len(volumes) >= 3:
+            spike = volumes[-1] / statistics.mean(volumes[-4:-1]) if volumes[-4:-1] else 1
+            if spike >= 1.5:
+                confidence += 0.2
+                reasons.append(f"vol_spike({spike:.1f}x)")
+
+        # Buy pressure
+        buy_ratio = data.get("txns_h24_buys", 0) / max(1, data.get("txns_h24_buys", 0) + data.get("txns_h24_sells", 0))
+        if buy_ratio > 0.6:
+            confidence += 0.2
+            reasons.append(f"buy_pressure({buy_ratio:.0%})")
+        elif buy_ratio < 0.4:
+            return False, 0, "sell_pressure"
+
+        # Market condition
+        if market_cond in ("bull", "bull_extreme"):
+            confidence += 0.15
+            reasons.append(f"market_{market_cond}")
+        elif market_cond in ("bear_extreme",):
+            return False, 0, "bear_market"
+
+        # Smart money
+        if intel_report.get("smart_money"):
+            confidence += 0.15
+            reasons.append("smart_money")
+
+        if self._entry_count[mint] >= 3:
+            return False, 0, "max_entries_reached"
+
+        min_conf = 0.45
+        if confidence >= min_conf:
+            self._entry_count[mint] += 1
+            return True, confidence, " | ".join(reasons)
+        return False, 0, f"low_confidence({confidence:.2f})"
+
+    def reset_entry_count(self, mint: str):
+        self._entry_count.pop(mint, None)
+
+# =============================================================================
+# 28. ADAPTIVE VALIDATOR
+# =============================================================================
+class AdaptiveValidator:
+    def __init__(self, min_score: int = 60):
+        self.min_score = min_score
+        self._outcomes: deque = deque(maxlen=50)
+
+    async def validate(self, data: Dict, intel_report: Dict, mint: str) -> Tuple[bool, int, str]:
+        score = adaptive_scorer.score(data)
+
+        liquidity = data.get("liquidity_usd", 0)
+        if liquidity < 5_000:
+            return False, score, "insufficient_liquidity"
+
+        volume = data.get("volume_h24", 0)
+        if volume < 1_000:
+            return False, score, "insufficient_volume"
+
+        if intel_report.get("whale_sentiment") == "bearish":
+            score -= 15
+        if intel_report.get("smart_money"):
+            score += 10
+
+        effective_min = self.min_score
+        if len(self._outcomes) >= 10:
+            recent_wins = sum(1 for o in list(self._outcomes)[-10:] if o > 0)
+            win_rate = recent_wins / 10
+            if win_rate < 0.4:
+                effective_min = int(self.min_score * 1.1)
+            elif win_rate > 0.7:
+                effective_min = int(self.min_score * 0.95)
+
+        valid = score >= effective_min
+        return valid, score, f"score_{'ok' if valid else 'low'}({score})"
+
+    def record_outcome(self, profit_pct: float):
+        self._outcomes.append(profit_pct)
+
+# =============================================================================
+# 29. AUTO TRADER (UNIFIED, EVENT‑DRIVEN)
+# =============================================================================
+class AutoTrader:
+    """Full autonomous trading engine with all layers integrated."""
+
+    def __init__(self, brain: UnifiedKnowledgeBase):
+        self.brain = brain
+        self.active = False
+        self.positions: Dict[str, Dict] = {}
+        self.split_mgr = SplitEntryManager()
+        self.flow_tracker = FlowTracker()
+        self.smart_money = SmartMoneyDetector()
+        self.cooldown = CooldownTracker()
+        self.exit_manager = ExitManager()
+        self.risk_mgr = EnhancedRiskManager()
+        self.trade_logger = EnhancedTradeLogger()
+        self.smart_planner = SmartTradePlanner()
+        self.validator = AdaptiveValidator()
+        self.knowledge = TradingKnowledgeBase(brain)
+        self._monitor_tasks: Dict[str, asyncio.Task] = {}
+
+        event_bus.subscribe("trade_closed", self.brain.learn_from_trade)
+
+    async def execute_buy(self, mint: str, sol_amount: float, chat_id: int) -> bool:
+        try:
+            lamports = int(sol_amount * 1e9)
+            sig = await jupiter_swap("So11111111111111111111111111111111111111112", mint, lamports)
+            if sig:
+                self.positions[mint] = {
+                    "buy_sol": sol_amount,
+                    "ts": time.time(),
+                    "signature": sig,
+                }
+                await bot.send_message(
+                    chat_id,
+                    f"🟢 SOLANA BUY: {mint[:20]}...\nAmount: {sol_amount:.4f} SOL\nSig: {sig[:20]}..."
+                )
+                audit_log("buy_signal", f"mint={mint} sol={sol_amount} sig={sig}")
+                await event_bus.publish("trade_opened", {
+                    "mint": mint, "sol_amount": sol_amount, "signature": sig
+                })
+                return True
+        except Exception as e:
+            log.error(f"execute_buy error: {e}")
+        return False
+
+    async def execute_sell(self, mint: str, sol_amount: float, chat_id: int) -> bool:
+        try:
+            lamports = int(sol_amount * 1e9)
+            sig = await jupiter_swap(mint, "So11111111111111111111111111111111111111112", lamports)
+            if sig:
+                await bot.send_message(
+                    chat_id,
+                    f"🔴 SOLD: {mint[:20]}...\nFor: {sol_amount:.4f} SOL\nSig: {sig[:20]}..."
+                )
+                audit_log("sell_signal", f"mint={mint} sol={sol_amount} sig={sig}")
+                return True
+        except Exception as e:
+            log.error(f"execute_sell error: {e}")
+        return False
+
+    async def _monitor_position(self, mint: str, chat_id: int):
+        """Monitor satu posisi hingga exit."""
+        while mint in self.positions and self.active and not kill_check():
+            await asyncio.sleep(5)
+            try:
+                data = await get_token_data(mint)
+                if not data:
+                    continue
+                current_price = data.get("price_usd", 0)
+                if current_price == 0:
+                    continue
+
+                await self.flow_tracker.update(mint)
+                flow = self.flow_tracker.analyze(mint)
+
+                self.exit_manager.update_price(mint, current_price)
+
+                pos = self.positions[mint]
+                entry_price = pos.get("entry_price", current_price)
+                if not entry_price or entry_price == 0:
+                    entry_price = current_price
+                    pos["entry_price"] = current_price
+                profit_pct = (current_price - entry_price) / entry_price * 100
+
+                # Cek exit
+                should_exit, reason = self.exit_manager.should_exit(
+                    mint, current_price, flow["flow_score"], flow["buy_ratio"]
+                )
+
+                if should_exit:
+                    duration = (time.time() - pos["ts"]) / 60
+                    result = "WIN" if profit_pct > 2 else "LOSS" if profit_pct < -2 else "BREAK_EVEN"
+
+                    # Log
+                    self.trade_logger.log_outcome(mint, entry_price, current_price, duration, profit_pct, result, reason)
+                    self.validator.record_outcome(profit_pct)
+                    if profit_pct < 0:
+                        self.risk_mgr.record_loss(profit_pct)
+
+                    # Sell
+                    await self.execute_sell(mint, pos["buy_sol"], chat_id)
+
+                    # Publish event
+                    await event_bus.publish("trade_closed", {
+                        "mint": mint, "entry_price": entry_price, "exit_price": current_price,
+                        "profit_pct": profit_pct, "duration_min": duration, "reason": reason,
+                        "result": result, "sol_amount": pos["buy_sol"],
+                    })
+
+                    # Cleanup
+                    del self.positions[mint]
+                    self.exit_manager.remove_position(mint)
+                    self.smart_planner.reset_entry_count(mint)
+                    if mint in self._monitor_tasks:
+                        self._monitor_tasks.pop(mint)
+                    break
+
+            except Exception as e:
+                log.error(f"monitor_position error [{mint[:12]}]: {e}")
+                await asyncio.sleep(10)
+
+    async def scan_and_trade(self, chat_id: int):
+        """Main trading loop."""
+        self.active = True
+        await bot.send_message(chat_id, "🔧 AUTO TRADER ACTIVATED (Tier 3)")
+
+        # Load knowledge if needed
+        with sqlite3.connect(DB_FILE_ALQALB) as conn:
+            if conn.execute("SELECT COUNT(*) FROM trade_signals_v2").fetchone()[0] == 0:
+                await self.knowledge.load_from_ai(chat_id)
+
+        while self.active and not kill_check():
+            try:
+                if tier_ctrl.get_tier() < 3:
+                    await bot.send_message(chat_id, "⚠️ Balance tier too low.")
+                    break
+                if self.risk_mgr.is_kill_switch():
+                    await bot.send_message(chat_id, "🛑 RISK KILL SWITCH")
+                    self.active = False
+                    break
+
+                intel_report = await free_intel.gather_intel()
+                strategy = await unified_governor.get_strategy(intel_report) if unified_governor else {"take_profit_mult": 2.0, "stop_loss_pct": -12.0, "trade_size_multiplier": 1.0}
+
+                self.exit_manager.dynamic_tp_pct = strategy["take_profit_mult"] * 5.0
+                self.exit_manager.dynamic_sl_pct = strategy["stop_loss_pct"]
+                financial_intel.weights["take_profit_mult"] = strategy["take_profit_mult"]
+                financial_intel.weights["stop_loss_pct"] = strategy["stop_loss_pct"]
+
+                signals = await scan_meme_coins()
+                for sig in signals[:5]:
+                    mint = sig.get("mint")
+                    if not mint or not self.cooldown.can_check(mint):
+                        continue
+                    if not self.risk_mgr.can_open_position(len(self.positions)):
+                        break
+
+                    data = await get_token_data(mint)
+                    if not data:
+                        continue
+
+                    # Validasi
+                    valid, score, msg = await self.validator.validate(data, intel_report, mint)
+                    if not valid:
+                        continue
+
+                    # Entry analysis
+                    market_cond = "neutral"
+                    should_enter, conf, plan_reason = self.smart_planner.analyze_entry(mint, data, intel_report, market_cond)
+                    if not should_enter:
+                        continue
+
+                    # Posisikan
+                    bal = get_real_balance(BOT_WALLET_ADDRESS)
+                    pct = financial_intel.weights.get("max_trade_pct", 0.05)
+                    size_mult = strategy.get("trade_size_multiplier", 1.0)
+                    total_amount = min(0.5, max(0.01, bal * pct * size_mult))
+                    first_amt = self.split_mgr.first_entry(mint, total_amount, data.get("price_usd", 0))
+                    if first_amt <= 0:
+                        continue
+
+                    self.trade_logger.log_signal(mint, data.get("symbol", "?"), score, data, market_cond)
+
+                    success = await self.execute_buy(mint, first_amt, chat_id)
+                    if success:
+                        self.positions[mint]["entry_price"] = data.get("price_usd", 0)
+                        self.exit_manager.register_position(mint, data.get("price_usd", 0), data.get("volume_h24", 0))
+                        task = asyncio.create_task(self._monitor_position(mint, chat_id))
+                        self._monitor_tasks[mint] = task
+
+                await asyncio.sleep(120)
+            except Exception as e:
+                log.error(f"scan_and_trade error: {e}")
+                await asyncio.sleep(30)
+        self.active = False
+        await bot.send_message(chat_id, "⏹️ AutoTrader stopped.")
+
+    def stop(self):
+        self.active = False
+        log.info("AutoTrader stopped.")
+
+auto_trader = AutoTrader(unified_brain)
+
+# (Lanjut ke Bagian 6: Trinitas, MetaGovernor Init, Background Tasks)
+
+# =============================================================================
+# 30. INCOME TIER CONTROLLER
+# =============================================================================
+class IncomeTierController:
+    """Mengontrol akses fitur berdasarkan balance wallet."""
+    def __init__(self):
+        self._balance_usd = 0.0
+        self._tier = 1
+
+    async def update_balance(self) -> float:
+        try:
+            sol = get_real_balance(BOT_WALLET_ADDRESS)
+            price = await get_sol_price_usd()
+            self._balance_usd = sol * price
+            self._tier = self.get_tier()
+        except Exception as e:
+            log.debug(f"tier update_balance error: {e}")
+        return self._balance_usd
+
+    def get_tier(self) -> int:
+        b = self._balance_usd
+        if b >= TIER_2_MAX_USD:
+            return 3
+        elif b >= TIER_1_MAX_USD:
+            return 2
+        return 1
+
+    def tier_description(self) -> str:
+        tier = self.get_tier()
+        b = self._balance_usd
+        icons = {1: "🥉", 2: "🥈", 3: "🥇"}
+        names = {1: "Basic", 2: "Scanner", 3: "Full Auto"}
+        return (
+            f"{icons[tier]} Tier {tier} — {names[tier]}\n"
+            f"   Balance: ${b:.2f} USD\n"
+            f"   {'Meme Scanner: ON' if tier >= 2 else 'Meme Scanner: OFF'}\n"
+            f"   {'AutoTrader: ON' if tier >= 3 else 'AutoTrader: OFF'}"
+        )
+
+tier_ctrl = IncomeTierController()
+
+# =============================================================================
+# 31. TRINITAS – OPENCLAW CONTROLLER
+# =============================================================================
+class ClawController:
+    """Internal OpenClaw controller – now event‑driven & integrated."""
+
+    def __init__(self):
+        self.api_url = os.getenv("CLAW_API_URL", "http://localhost:1865")
+        self.enabled = os.getenv("CLAW_ENABLED", "false").lower() == "true"
+        self.session: Optional[aiohttp.ClientSession] = None
+        self.active = False
+
+        # Subscribe to meaningful events
+        event_bus.subscribe("trade_opened", self.on_trade_opened)
+        event_bus.subscribe("trade_closed", self.on_trade_closed)
+        event_bus.subscribe("emergency_stop", self.on_emergency)
+        event_bus.subscribe("research_completed", self.on_research_completed)
+
+    async def start(self):
+        if not self.enabled:
+            log.info("ClawController disabled")
+            return
+        self.session = aiohttp.ClientSession()
+        try:
+            async with self.session.get(f"{self.api_url}/health", timeout=aiohttp.ClientTimeout(total=5)) as r:
+                self.active = (r.status == 200)
+                log.info(f"ClawController: {'connected' if self.active else 'unreachable'}")
+        except Exception as e:
+            self.active = False
+            log.warning(f"ClawController health check failed: {e}")
+
+    async def close(self):
+        if self.session:
+            await self.session.close()
+        self.active = False
+
+    async def _send_task(self, prompt: str, priority: int = 5):
+        if not self.active or not self.session:
+            return
+        try:
+            async with self.session.post(
+                f"{self.api_url}/agent/task",
+                json={"prompt": prompt, "priority": priority},
+                timeout=aiohttp.ClientTimeout(total=30)
+            ) as r:
+                if r.status == 200:
+                    log.info(f"Claw task sent: {prompt[:50]}")
+        except Exception as e:
+            log.error(f"ClawController task error: {e}")
+
+    async def on_trade_opened(self, data: dict):
+        mint = data.get("mint", "?")
+        amount = data.get("sol_amount", 0)
+        await self._send_task(f"Screenshot trade entry: {mint[:12]} | {amount:.4f} SOL", priority=8)
+        await self._send_task(f"Show notification: Entry {mint[:12]} | {amount:.4f} SOL", priority=10)
+
+    async def on_trade_closed(self, data: dict):
+        mint = data.get("mint", "?")
+        profit = data.get("profit_pct", 0)
+        emoji = "✅" if profit > 0 else "❌"
+        await self._send_task(f"Screenshot trade exit: {mint[:12]} | {profit:+.2f}%", priority=8)
+        await self._send_task(f"Show notification: {emoji} Exit {mint[:12]} | {profit:+.2f}%", priority=10)
+
+    async def on_emergency(self, data: dict):
+        reason = data.get("reason", "unknown")
+        await self._send_task(f"Show notification: 🚨 EMERGENCY – {reason}", priority=10)
+
+    async def on_research_completed(self, data: dict):
+        topic = data.get("topic", "?")
+        await self._send_task(f"Show notification: Knowledge updated on {topic}", priority=6)
+
+claw = ClawController()
+
+# =============================================================================
+# 32. TRINITAS – OPENMANUS CONTROLLER
+# =============================================================================
+class ManusController:
+    """Internal OpenManus controller – fully integrated subprocess handler."""
+
+    def __init__(self):
+        self.manus_path = os.getenv("OPENMANUS_PATH", "./OpenManus")
+        self.python_bin = sys.executable
+        self.enabled = os.getenv("MANUS_ENABLED", "false").lower() == "true"
+        self.task_queue: asyncio.Queue = asyncio.Queue()
+        self.active = False
+        self.results: Dict[str, Any] = {}
+
+        # Subscribe to research requests
+        event_bus.subscribe("manus_research_request", self.on_research_request)
+
+    async def start(self):
+        if not self.enabled:
+            log.info("ManusController disabled")
+            return
+        if not os.path.isdir(self.manus_path):
+            log.warning(f"ManusController: path '{self.manus_path}' not found")
+            return
+        main_py = os.path.join(self.manus_path, "main.py")
+        if not os.path.isfile(main_py):
+            log.warning(f"ManusController: main.py not found in {self.manus_path}")
+            return
+        self.active = True
+        log.info(f"ManusController: OpenManus ready at {self.manus_path}")
+        asyncio.create_task(self._process_queue())
+
+    async def _process_queue(self):
+        while self.active:
+            try:
+                task = await asyncio.wait_for(self.task_queue.get(), timeout=5.0)
+                await self._execute(task)
+            except asyncio.TimeoutError:
+                continue
+            except Exception as e:
+                log.error(f"ManusController queue error: {e}")
+
+    async def _execute(self, task: dict):
+        task_id = task.get("id", str(uuid.uuid4()))
+        prompt = task.get("prompt", "")
+        max_steps = task.get("max_steps", 20)
+
+        cmd = [
+            self.python_bin,
+            os.path.join(self.manus_path, "main.py"),
+            "--prompt", prompt,
+            "--max-steps", str(max_steps)
+        ]
+
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=self.manus_path
+            )
+            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=300)
+            result = {
+                "success": process.returncode == 0,
+                "stdout": stdout.decode('utf-8', errors='replace') if stdout else "",
+                "stderr": stderr.decode('utf-8', errors='replace') if stderr else "",
+                "returncode": process.returncode
+            }
+            self.results[task_id] = result
+            log.info(f"Manus executed: success={result['success']}")
+            await event_bus.publish("manus_result", {"id": task_id, "result": result})
+
+            # Store result into brain if relevant
+            if result["success"] and result["stdout"]:
+                summary = result["stdout"][:1000]
+                unified_brain.add_knowledge([{
+                    "id": f"manus_{task_id[:8]}",
+                    "topic": "manus_research",
+                    "statement": summary,
+                    "epistemic_type": "fact",
+                }])
+        except asyncio.TimeoutError:
+            self.results[task_id] = {"error": "Timeout", "success": False}
+        except Exception as e:
+            self.results[task_id] = {"error": str(e), "success": False}
+
+    async def send_task(self, prompt: str, max_steps: int = 20) -> str:
+        if not self.active:
+            return ""
+        task_id = str(uuid.uuid4())
+        await self.task_queue.put({
+            "id": task_id,
+            "prompt": prompt,
+            "max_steps": max_steps,
+        })
+        return task_id
+
+    async def on_research_request(self, data: dict):
+        query = data.get("query", "")
+        if query:
+            await self.send_task(f"Perform deep research on: {query}. Return structured summary with sources.")
+
+    async def close(self):
+        self.active = False
+
+manus = ManusController()
+
+# =============================================================================
+# 33. BACKGROUND TASKS & WATCHDOG
+# =============================================================================
+async def tier_monitor():
+    """Update tier balance setiap 60 detik."""
+    while True:
+        try:
+            await tier_ctrl.update_balance()
+        except Exception as e:
+            log.debug(f"tier_monitor error: {e}")
+        await asyncio.sleep(60)
+
+async def daily_scheduler():
+    """Kirim laporan harian dan reset counter."""
+    await asyncio.sleep(30)
+    while not kill_check():
+        try:
+            now = time.time()
+            today_str = datetime.now().strftime("%d/%m/%Y %H:%M")
+            sol_bal = get_real_balance(BOT_WALLET_ADDRESS)
+            sol_price = await get_sol_price_usd()
+            usd_val = sol_bal * sol_price
+
+            brain_nodes = unified_brain.get_stats()["total_nodes"]
+            auto_trader.risk_mgr.reset_daily()
+
+            report = (
+                f"📊 DAILY REPORT — {today_str}\n\n"
+                f"💰 Balance: {sol_bal:.4f} SOL (${usd_val:.2f})\n"
+                f"{tier_ctrl.tier_description()}\n\n"
+                f"🧠 Brain Nodes: {brain_nodes}\n"
+                f"🧬 UHEE Cycles: {uhee_engine.cycle_count}\n"
+                f"📈 Strategies Loaded: {len(code_gen.loaded_strategies)}\n"
+                f"🔴 Kill Switch: {'ON' if KILL_SWITCH else 'OFF'}"
+            )
+            try:
+                await bot.send_message(OWNER_ID, report)
+            except Exception as e:
+                log.warning(f"daily_scheduler send error: {e}")
+
+            await event_bus.publish("daily_tick", {
+                "timestamp": now,
+                "sol_balance": sol_bal,
+                "usd_value": usd_val,
+                "brain_nodes": brain_nodes,
+            })
+        except Exception as e:
+            log.error(f"daily_scheduler error: {e}")
+        await asyncio.sleep(86400)
+
+async def uhee_background():
+    """Jalankan siklus UHEE dari data scraped secara berkala."""
+    await asyncio.sleep(600)
+    while not kill_check():
+        try:
+            # Dummy data: gunakan data acak jika belum ada data trading
+            rows = [{"price": random.uniform(0, 100), "volume": random.uniform(1000, 10000)} for _ in range(100)]
+            df = pd.DataFrame(rows)
+            result = uhee_engine.run_cycle(df, "synthetic")
+            log.info(f"UHEE cycle {uhee_engine.cycle_count}: best={result['stats']['best']:.3f}")
+
+            await event_bus.publish("evolution_completed", {
+                "cycle": uhee_engine.cycle_count,
+                "best_fitness": result["stats"]["best"],
+                "top_hypotheses": result["top_hypotheses"],
+            })
+
+            # Inject hasil ke CodeGenerator
+            await code_gen.evolve_from_uhee(result.get("top_hypotheses", []))
+        except Exception as e:
+            log.warning(f"uhee_background error: {e}")
+        await asyncio.sleep(3600)
+
+async def watchdog():
+    """Restart tasks yang mati."""
+    required_tasks = {
+        "tier_monitor": tier_monitor,
+        "daily_scheduler": daily_scheduler,
+        "uhee_background": uhee_background,
+    }
+    while not kill_check():
+        await asyncio.sleep(30)
+        current_tasks = {t.get_name(): t for t in asyncio.all_tasks() if not t.done()}
+        for name, coro_fn in required_tasks.items():
+            if name not in current_tasks:
+                log.warning(f"⚠️ Task '{name}' died! Restarting...")
+                asyncio.create_task(coro_fn(), name=name)
+                await event_bus.publish("task_restarted", {"task": name})
+                try:
+                    await bot.send_message(OWNER_ID, f"⚠️ Task '{name}' di-restart otomatis")
+                except Exception:
+                    pass
+
+# =============================================================================
+# 34. TELEGRAM BOT HANDLERS (UNIFIED)
+# =============================================================================
+bot = AsyncTeleBot(TOKEN)
+
+# ---------- /start ----------
+@bot.message_handler(commands=["start", "help"])
+async def cmd_start(m):
+    if not is_owner(m):
+        return
+    await bot.send_message(
+        m.chat.id,
+        "🔧 ADAPTIVE AUTONOMOUS ECONOMIC INTELLIGENCE SYSTEM\n"
+        "Core: FinancialIntel + U‑HEE + Unified MetaGovernor + Unified Brain\n\n"
+        "📊 TIER SYSTEM:\n"
+        f"  Tier 1 (< ${TIER_1_MAX_USD}): Basic\n"
+        f"  Tier 2 (${TIER_1_MAX_USD}–${TIER_2_MAX_USD}): + Meme Scanner\n"
+        f"  Tier 3 (> ${TIER_2_MAX_USD}): Full Auto Trading\n\n"
+        "📋 COMMANDS:\n"
+        "/tier_status – Cek tier & balance\n"
+        "/balance – Cek SOL balance\n"
+        "/withdraw – Withdraw SOL\n"
+        "/meme_scan – Scan meme coins\n"
+        "/trade_start – Mulai auto trading\n"
+        "/trade_stop – Stop trading\n"
+        "/trade_positions – Posisi aktif\n"
+        "/wealth_cycle – Jalankan earner+money\n"
+        "/status – Status lengkap sistem\n"
+        "/kill_switch – Emergency stop\n"
+        "/load_knowledge <topik> – Ambil pengetahuan dari AI (KG Reasoning)\n"
+        "/show_knowledge – Lihat isi Unified Brain\n"
+        "/forget_topic <topik> – Hapus topik dari brain\n"
+        "/reset_knowledge – Reset seluruh brain\n"
+        "/deep_research <topik> – Riset internal + MetaGovernor\n"
+        "/upgrade <deskripsi> – Self‑modify kode\n"
+        "/evolve_now – Evolusi pengetahuan\n"
+        "/meta_status – Status MetaGovernor\n\n"
+        "💬 Chat bebas untuk tanya‑jawab dengan Unified Brain + AI.",
+        parse_mode=None
+    )
+
+# ---------- /tier_status ----------
+@bot.message_handler(commands=["tier_status"])
+async def cmd_tier_status(m):
+    if not is_owner(m):
+        return
+    await tier_ctrl.update_balance()
+    await bot.send_message(m.chat.id, f"📊 INCOME TIER STATUS\n\n{tier_ctrl.tier_description()}")
+
+# ---------- /balance ----------
+@bot.message_handler(commands=["balance"])
+async def cmd_balance(m):
+    if not is_owner(m):
+        return
+    bal = get_real_balance(BOT_WALLET_ADDRESS)
+    price = await get_sol_price_usd()
+    await bot.send_message(m.chat.id, f"💰 Balance: {bal:.4f} SOL (${bal * price:.2f})")
+
+# ---------- /meme_scan ----------
+@bot.message_handler(commands=["meme_scan"])
+async def cmd_meme_scan(m):
+    if not is_owner(m):
+        return
+    if tier_ctrl.get_tier() < 2:
+        return await bot.send_message(m.chat.id, f"⚠️ Meme scanner butuh Tier 2 (balance > ${TIER_1_MAX_USD})")
+    await bot.send_message(m.chat.id, "🔎 Scanning meme coins...")
+    signals = await scan_meme_coins()
+    if not signals:
+        return await bot.send_message(m.chat.id, "😴 Tidak ada signal.")
+    msg = "🪙 MEME SIGNALS\n\n"
+    for sig in signals[:5]:
+        msg += f"{'🔥' if sig['score'] >= 70 else '📄'} {sig.get('symbol','?')} – {sig.get('name','')}\n"
+        msg += f"   Score: {sig['score']}/100 | MC: ${sig.get('market_cap',0):,.0f} | Vol: ${sig.get('volume_h24',0):,.0f}\n"
+        msg += f"   Buy: {sig.get('buy_ratio',0):.0%}\n\n"
+    await bot.send_message(m.chat.id, msg, parse_mode=None)
+
+# ---------- /trade_start ----------
+@bot.message_handler(commands=["trade_start"])
+async def cmd_trade_start(m):
+    if not is_owner(m):
+        return
+    if tier_ctrl.get_tier() < 3:
+        return await bot.send_message(m.chat.id, f"⚠️ AutoTrader butuh Tier 3 (balance > ${TIER_2_MAX_USD})")
+    asyncio.create_task(auto_trader.scan_and_trade(m.chat.id))
+    await bot.send_message(m.chat.id, "✅ Auto Trader STARTED (Tier 3)")
+
+# ---------- /trade_stop ----------
+@bot.message_handler(commands=["trade_stop"])
+async def cmd_trade_stop(m):
+    if not is_owner(m):
+        return
+    auto_trader.stop()
+    await bot.send_message(m.chat.id, "⏹️ Auto Trader stopped.")
+
+# ---------- /trade_positions ----------
+@bot.message_handler(commands=["trade_positions"])
+async def cmd_trade_positions(m):
+    if not is_owner(m):
+        return
+    if not auto_trader.positions:
+        return await bot.send_message(m.chat.id, "📭 Tidak ada posisi aktif.")
+    msg = "📊 OPEN POSITIONS\n\n"
+    for mint, pos in auto_trader.positions.items():
+        age = (time.time() - pos.get("ts", time.time())) / 3600
+        entry = pos.get("entry_price", 0)
+        msg += f"🔹 {mint[:20]}...\n   Buy: {pos.get('buy_sol',0):.4f} SOL | Entry: {entry:.8f} | Age: {age:.1f}h\n\n"
+    await bot.send_message(m.chat.id, msg)
+
+# ---------- /status ----------
+@bot.message_handler(commands=["status"])
+async def cmd_status(m):
+    if not is_owner(m):
+        return
+    bal = get_real_balance(BOT_WALLET_ADDRESS)
+    price = await get_sol_price_usd()
+    brain_stats = unified_brain.get_stats()
+    ev = auto_trader.trade_logger.get_expected_value(20)
+    ev_str = f"{ev.get('expected_value_pct', 0):+.2f}%" if ev.get("status") == "ok" else "N/A"
+    await bot.send_message(
+        m.chat.id,
+        f"📊 SYSTEM STATUS\n\n"
+        f"{tier_ctrl.tier_description()}\n\n"
+        f"💰 Balance: {bal:.4f} SOL (${bal * price:.2f})\n"
+        f"🔴 Kill Switch: {'ON' if KILL_SWITCH else 'OFF'}\n\n"
+        f"🔧 Trader: {'ACTIVE' if auto_trader.active else 'INACTIVE'} | Positions: {len(auto_trader.positions)}\n"
+        f"📈 Expected Value: {ev_str}\n\n"
+        f"🧠 Brain Nodes: {brain_stats['total_nodes']}\n"
+        f"🧬 UHEE Cycles: {uhee_engine.cycle_count}\n"
+        f"📦 Strategies: {len(code_gen.loaded_strategies)}\n\n"
+        f"🌐 Trinitas: Claw={'🟢' if claw.active else '🔴'} | Manus={'🟢' if manus.active else '🔴'}"
+    )
+
+# ---------- /kill_switch ----------
+@bot.message_handler(commands=["kill_switch"])
+async def cmd_kill(m):
+    global KILL_SWITCH
+    if not is_owner(m):
+        return
+    KILL_SWITCH = not KILL_SWITCH
+    if KILL_SWITCH:
+        auto_trader.stop()
+    state = "AKTIF 🔴" if KILL_SWITCH else "OFF ✅"
+    audit_log("kill_switch", f"state={state} by={m.from_user.id}")
+    await bot.send_message(m.chat.id, f"🔴 KILL_SWITCH: {state}")
+
+# ---------- /load_knowledge ----------
+@bot.message_handler(commands=["load_knowledge"])
+async def cmd_load_knowledge(m):
+    if not is_owner(m):
+        return
+    topic = m.text[16:].strip()
+    if not topic:
+        return await bot.send_message(m.chat.id, "Format: /load_knowledge <topik>")
+    await bot.send_message(m.chat.id, f"💡 Building knowledge graph for: {topic}")
+    await trading_knowledge.load_from_ai(m.chat.id)
+
+# ---------- /show_knowledge ----------
+@bot.message_handler(commands=["show_knowledge"])
+async def cmd_show_knowledge(m):
+    if not is_owner(m):
+        return
+    stats = unified_brain.get_stats()
+    topics = stats.get("topics", {})
+    if not topics:
+        return await bot.send_message(m.chat.id, "🧠 Brain kosong.")
+    msg = f"🧠 UNIFIED BRAIN ({stats['total_nodes']} nodes)\n\n"
+    for topic, count in list(topics.items())[:10]:
+        msg += f"📄 {topic.upper()} ({count} node)\n"
+    chunks = [msg[i:i+3800] for i in range(0, len(msg), 3800)]
+    for chunk in chunks[:3]:
+        await bot.send_message(m.chat.id, chunk)
+
+# ---------- /deep_research ----------
+@bot.message_handler(commands=["deep_research"])
+async def cmd_deep_research(m):
+    if not is_owner(m):
+        return
+    topic = m.text[14:].strip()
+    if not topic:
+        return await bot.send_message(m.chat.id, "Format: /deep_research <topik>")
+    await bot.send_message(m.chat.id, f"🔬 Deep Research dimulai: {topic}")
+    result = await research_orchestrator.research(topic)
+    await bot.send_message(m.chat.id, result[:4000], parse_mode=None)
+
+# ---------- /meta_status ----------
+@bot.message_handler(commands=["meta_status"])
+async def cmd_meta_status(m):
+    if not is_owner(m):
+        return
+    if not unified_governor:
+        return await bot.send_message(m.chat.id, "MetaGovernor belum aktif.")
+    mg = unified_governor
+    brain_stats = unified_brain.get_stats()
+    msg = (
+        f"🧬 META GOVERNOR STATUS\n\n"
+        f"Mode: {mg.mode}\n"
+        f"Consciousness: {mg.consciousness:.2f}\n"
+        f"Strategy: TP_mult={mg.strategy['take_profit_mult']}, SL={mg.strategy['stop_loss_pct']}%\n"
+        f"Brain Nodes: {brain_stats['total_nodes']}\n"
+    )
+    await bot.send_message(m.chat.id, msg)
+
+# ---------- /evolve_now ----------
+@bot.message_handler(commands=["evolve_now"])
+async def cmd_evolve_now(m):
+    if not is_owner(m):
+        return
+    # Trigger manual evolution
+    rows = [{"price": random.uniform(0, 100), "volume": random.uniform(1000, 10000)} for _ in range(100)]
+    df = pd.DataFrame(rows)
+    result = uhee_engine.run_cycle(df, "manual_trigger")
+    await code_gen.evolve_from_uhee(result.get("top_hypotheses", []))
+    await bot.send_message(m.chat.id, "🧬 Evolusi pengetahuan selesai.")
+
+# ---------- /withdraw (pending approval) ----------
+pending_approvals: Dict[int, Dict] = {}
+_pending_counter = 0
+
+@bot.message_handler(commands=["withdraw"])
+async def cmd_withdraw(m):
+    global _pending_counter
+    if not is_owner(m):
+        return
+    if kill_check():
+        return await bot.send_message(m.chat.id, "❌ Kill switch aktif.")
+    if not PRIVATE_KEY_BOT or not WALLET_TARGET:
+        return await bot.send_message(m.chat.id, "❌ Wallet belum dikonfigurasi.")
+
+    bal = get_real_balance(BOT_WALLET_ADDRESS)
+    amount = bal - MIN_RESERVE_SOL
+    if amount <= 0:
+        return await bot.send_message(m.chat.id, f"❌ Saldo tidak cukup: {bal:.6f} SOL")
+
+    if amount >= BIG_TX_THRESHOLD:
+        _pending_counter += 1
+        pid = _pending_counter
+        pending_approvals[pid] = {
+            "chat_id": m.chat.id,
+            "to_address": WALLET_TARGET,
+            "amount_sol": amount,
+        }
+        markup = InlineKeyboardMarkup()
+        markup.row(
+            InlineKeyboardButton("✅ Approve", callback_data=f"approve_{pid}"),
+            InlineKeyboardButton("❌ Deny", callback_data=f"deny_{pid}")
+        )
+        await bot.send_message(
+            SECOND_ADMIN_ID,
+            f"⚠️ APPROVAL #{pid}\nWithdraw {amount:.4f} SOL → {WALLET_TARGET[:20]}...",
+            reply_markup=markup
+        )
+        return await bot.send_message(m.chat.id, f"⏳ Pending approval #{pid}")
+    else:
+        try:
+            sig = send_sol_tx(WALLET_TARGET, amount)
+            audit_log("withdraw", f"amount={amount} to={WALLET_TARGET} sig={sig}")
+            await bot.send_message(m.chat.id, f"✅ Withdraw sukses!\nJumlah: {amount:.6f} SOL\nTx: {sig}")
+        except Exception as e:
+            await bot.send_message(m.chat.id, f"❌ Error: {e}")
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("approve_") or c.data.startswith("deny_"))
+async def handle_approval(call):
+    if call.from_user.id not in (OWNER_ID, SECOND_ADMIN_ID):
+        return
+    action, pid_str = call.data.split("_", 1)
+    pid = int(pid_str)
+    item = pending_approvals.pop(pid, None)
+    if not item:
+        return await bot.answer_callback_query(call.id, "Expired!")
+    if action == "approve":
+        try:
+            sig = send_sol_tx(item["to_address"], item["amount_sol"])
+            audit_log("approved_tx", f"pid={pid} sig={sig}")
+            await bot.send_message(item["chat_id"], f"✅ TX Approved!\nSig: {sig}")
+        except Exception as e:
+            await bot.send_message(item["chat_id"], f"❌ TX Failed: {e}")
+    else:
+        await bot.send_message(item["chat_id"], f"🔕 Request #{pid} ditolak.")
+    await bot.answer_callback_query(call.id, "Done")
+
+# ---------- Catch‑all text handler ----------
+@bot.message_handler(func=lambda m: True)
+async def core_handler(m):
+    if not is_owner(m):
+        return
+    text = m.text.strip() if m.text else ""
+    if not text or text.startswith("/"):
+        return
+
+    if not rate_check(m.from_user.id):
+        return await bot.send_message(m.chat.id, "⚠️ Rate limit – tunggu sebentar.")
+
+    # Gunakan unified brain untuk menjawab
+    brain_answer = unified_brain.answer_from_brain(text)
+    if brain_answer and len(brain_answer) > 50:
+        return await bot.send_message(m.chat.id, brain_answer[:4000], parse_mode=None)
+
+    # Fallback ke AI
+    resp = await ai_hybrid(text)
+    await bot.send_message(m.chat.id, resp[:4000], parse_mode=None)
+
+
+# (Lanjut ke Bagian 7: Main, Inisialisasi Global, dan Startup)
+
+# =============================================================================
+# 35. DATABASE INITIALIZATION (Al Qalb)
+# =============================================================================
+def init_db():
+    """Initialize all Al Qalb database tables."""
+    os.makedirs("data", exist_ok=True)
+    with sqlite3.connect(DB_FILE_ALQALB) as conn:
+        conn.executescript("""
+        CREATE TABLE IF NOT EXISTS audit_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts REAL, kind TEXT, content TEXT
+        );
+        CREATE TABLE IF NOT EXISTS knowledge (
+            ts REAL, topic TEXT, content TEXT
+        );
+        CREATE TABLE IF NOT EXISTS income_ledger (
+            ts REAL, amount_sol REAL, note TEXT
+        );
+        CREATE TABLE IF NOT EXISTS trade_signals_v2 (
+            id TEXT PRIMARY KEY, ts REAL, mint TEXT, symbol TEXT,
+            score INTEGER, market_cap REAL, volume REAL, price REAL,
+            buy_ratio REAL, flow_score REAL, market_condition TEXT,
+            result TEXT, entry_price REAL, exit_price REAL,
+            profit_percent REAL, duration_min REAL, reason TEXT,
+            simulated INTEGER DEFAULT 1
+        );
+        CREATE TABLE IF NOT EXISTS licenses (
+            user_id INTEGER PRIMARY KEY, plan TEXT,
+            created_at REAL, expires_at REAL, key TEXT
+        );
+        CREATE TABLE IF NOT EXISTS risk_state (
+            key TEXT PRIMARY KEY, value REAL, date TEXT
+        );
+        CREATE TABLE IF NOT EXISTS trading_knowledge (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            category TEXT, content TEXT, loaded_at REAL
+        );
+        CREATE TABLE IF NOT EXISTS hypotheses (
+            cycle INTEGER, data TEXT, ts REAL
+        );
+        """)
+    log.info("Al Qalb database initialized.")
+
+# =============================================================================
+# 36. MAIN STARTUP SEQUENCE
+# =============================================================================
+async def main():
+    """
+    System startup sequence:
+    1. Init DB & memory stores (both systems)
+    2. Migrate old knowledge
+    3. Init DNA, Memory Manager, Unified Governor
+    4. Init Trinitas controllers (Claw + Manus)
+    5. Start background tasks (AIW, UHEE, Tier, Daily, Watchdog)
+    6. Start Telegram polling
+    """
+    global unified_governor, research_orchestrator
+
+    log.info("=" * 80)
+    log.info("  AL QALB QUANTUM ULTIMATE — FULLY INTEGRATED SYSTEM STARTING")
+    log.info("  QND 405B + Al Qalb Economic Core + Trinitas Bridge")
+    log.info("=" * 80)
+
+    # Step 1: Initialize database
+    init_db()
+    log.info("✅ Database initialized")
+
+    # Step 2: Migrate old knowledge (dari JSON lama jika ada)
+    legacy_files = [
+        "local_brain.json", "knowledge.json", "brain.json",
+        "data/knowledge.json", "data/brain.json"
+    ]
+    for fpath in legacy_files:
+        if os.path.exists(fpath):
+            try:
+                with open(fpath, "r") as f:
+                    old_data = json.load(f)
+                if isinstance(old_data, list):
+                    unified_brain.add_knowledge(old_data)
+                elif isinstance(old_data, dict) and "id" in old_data:
+                    unified_brain.add_knowledge([old_data])
+                os.remove(fpath)
+                log.info(f"Migrated legacy brain file: {fpath}")
+            except Exception as e:
+                log.warning(f"Migration failed [{fpath}]: {e}")
+
+    log.info(f"✅ Knowledge migrated — {unified_brain.get_stats()['total_nodes']} nodes")
+
+    # Step 3: Initialize DNA, Memory Manager, Unified Meta-Governor
+    dna = QuantumSparseDNA(dna_size=256, latent_dim=128)
+    mm = ThreeLevelMemoryManager(l1_mb=20, l2_mb=100)
+    unified_governor = UnifiedMetaGovernor(dna, mm)
+    
+    log.info("✅ QND Neural DNA initialized (256 genes, 3-level memory)")
+
+    # Step 4: Initialize research orchestrator
+    research_orchestrator = ResearchOrchestrator(unified_brain, web_engine)
+    await web_engine.start()
+
+    # Step 5: Start Trinitas controllers
+    await claw.start()
+    await manus.start()
+    log.info("✅ Trinitas Bridge (OpenClaw + OpenManus) started")
+
+    # Step 6: Wire up core event subscribers
+    event_bus.subscribe("evolution_completed", code_gen.evolve_from_uhee)
+    event_bus.subscribe("trade_closed", unified_brain.learn_from_trade)
+    event_bus.subscribe("trade_closed", financial_intel.record_outcome)
+    event_bus.subscribe("trade_closed", unified_governor.on_trade_closed)
+    event_bus.subscribe("evolution_completed", unified_governor.on_evolution)
+    event_bus.subscribe("research_completed", unified_governor.on_research)
+
+    # Step 7: Start background tasks
+    asyncio.create_task(tier_monitor(), name="tier_monitor")
+    asyncio.create_task(daily_scheduler(), name="daily_scheduler")
+    asyncio.create_task(uhee_background(), name="uhee_background")
+    asyncio.create_task(watchdog(), name="watchdog")
+    asyncio.create_task(unified_governor.run(), name="meta_governor")
+    asyncio.create_task(event_bus.start(), name="event_bus")
+    log.info("✅ Background tasks started")
+
+    # Step 8: Publish system_started event
+    await event_bus.publish("system_started", {
+        "timestamp": time.time(),
+        "version": "5.0-Integrated",
+        "brain_nodes": unified_brain.get_stats()["total_nodes"],
+        "dna_size": dna.dna_size,
+        "dna_latent_dim": dna.latent_dim,
+    })
+
+    # Step 9: Notify owner
+    try:
+        await bot.send_message(
+            OWNER_ID,
+            f"🚀 AL QALB QUANTUM ULTIMATE v5.0 started!\n\n"
+            f"🧬 QND DNA: {dna.dna_size} genes, {dna.latent_dim}D latent\n"
+            f"🧠 Brain: {unified_brain.get_stats()['total_nodes']} nodes\n"
+            f"🥇 Tier: {tier_ctrl.tier_description()}\n"
+            f"🔗 Trinitas: Claw={'🟢' if claw.active else '🔴'} | "
+            f"Manus={'🟢' if manus.active else '🔴'}"
+        )
+    except Exception:
+        pass
+
+    log.info("🚀 AL QALB QUANTUM ULTIMATE fully started!")
+
+    # Step 10: Start Telegram polling (with auto-reconnect)
+    while True:
+        try:
+            await bot.infinity_polling(
+                timeout=120,
+                request_timeout=90,
+                logger_level=logging.WARNING,
+            )
+        except Exception as e:
+            log.error(f"Telegram polling error: {e}")
+            await asyncio.sleep(10)
+
+# =============================================================================
+# 37. ENTRY POINT
+# =============================================================================
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        log.info("AL QALB QUANTUM ULTIMATE stopped by user.")
+    except Exception as e:
+        log.critical(f"Fatal error: {e}")
+        raise
